@@ -1,0 +1,7 @@
+resources:
+  - node-app/deployment.yaml
+  - node-app/service.yaml
+  - mysql/deployment.yaml
+  - mysql/service.yaml
+  - redis/deployment.yaml
+  - redis/service.yaml

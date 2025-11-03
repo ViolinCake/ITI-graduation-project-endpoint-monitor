@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-health-app
+  labels:
+    app: api-health-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-health-app
+  template:
+    metadata:
+      labels:
+        app: api-health-app
+    spec:
+      containers:
+        - name: api-health-app
+          image: api-health-app:local  
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "3000"
+            - name: DB_HOST
+              value: "mysql"
+            - name: DB_USER
+              value: "apihealth"
+            - name: DB_PASSWORD
+              value: "apihealth123"
+            - name: DB_NAME
+              value: "api_health_dashboard"
+            - name: REDIS_HOST
+              value: "redis"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: CACHE_TTL
+              value: "300"
