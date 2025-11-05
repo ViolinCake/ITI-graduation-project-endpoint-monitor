@@ -36,7 +36,7 @@ pipeline{
             }
         }
 
-        stages("Test Image"){
+        stage("Test Image"){
             steps{
                 echo 'Running tests...'
                 sh """
