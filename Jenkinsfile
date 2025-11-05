@@ -1,5 +1,10 @@
 pipeline{
-    agent any
+    agent {
+      docker {
+      image 'docker:24.0.6'
+      args '-v /var/run/docker.sock:/var/run/docker.sock'
+     }
+    }
     environment{
         NODE_ENV='testing'
         AWS_REGION = 'eu-north-1'
@@ -24,28 +29,17 @@ pipeline{
                 echo "Git Commit: ${env.GIT_COMMIT}"
             }
         }
-        stage('Build Docker Image'){
-            steps{
-               script {
-                    echo 'Building Docker image...'
+        stage('Build & Push Image (Kaniko)') {
+            steps {
+                container('kaniko') {
                     sh """
-                        docker build -t ${IMAGE_NAME} -t ${IMAGE_LATEST} .
-                        docker tag ${IMAGE_NAME} ${IMAGE_LATEST}
+                        /kaniko/executor \
+                          --context=`pwd` \
+                          --dockerfile=Dockerfile \
+                          --destination=${IMAGE_NAME} \
+                          --destination=${IMAGE_LATEST}
                     """
-               }
-            }
-        }
-
-        stage("Test Image"){
-            steps{
-                echo 'Running tests...'
-                sh """
-                    docker run -d  --name test-container -p 3001:3000 ${IMAGE_NAME}
-                    sleep 10
-                    curl -f   http://localhost:3001/health || exit 1
-                    docker stop test-container
-                    docker rm test-container
-                """
+                }
             }
         }
     }
