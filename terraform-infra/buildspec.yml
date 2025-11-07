@@ -1,0 +1,40 @@
+version: 0.2
+
+env:
+  variables:
+    CLUSTER_NAME: "demo-eks-cluster"
+    REGION: "us-east-1"
+    NAMESPACE: "jenkins"
+    RELEASE_NAME: "jenkins"
+    CHART_VERSION: "5.8.106"
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - echo "Installing Helm and dependencies..."
+      - curl -sSL https://get.helm.sh/helm-v3.15.2-linux-amd64.tar.gz | tar xz
+      - mv linux-amd64/helm /usr/local/bin/helm
+
+  pre_build:
+    commands:
+      - echo "Authenticating with EKS..."
+      - aws eks update-kubeconfig --name $CLUSTER_NAME --region $REGION
+      - kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+
+  build:
+    commands:
+      - echo "Adding Jenkins Helm repo..."
+      - helm repo add jenkins https://charts.jenkins.io
+      - helm repo update
+      - echo "Installing Jenkins using external values file..."
+      - helm upgrade --install $RELEASE_NAME jenkins/jenkins \
+          --namespace $NAMESPACE \
+          -f jenkins-values.yaml \
+          --version $CHART_VERSION
+
+  post_build:
+    commands:
+      - echo "Deployment finished. Listing resources..."
+      - kubectl get pods,svc -n $NAMESPACE
