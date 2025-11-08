@@ -1,0 +1,31 @@
+controller:
+  # This section configures the primary Jenkins controller instance
+  admin:
+    # Set this to true to ensure the secret for this user is created/updated.
+    createSecret: true
+    # --- Admin Credentials ---
+    username: 'my-jenkins-admin'
+    password: 'StrongPassword123'
+
+  # Ensure the service is exposed via an AWS Load Balancer for EKS access
+  serviceType: LoadBalancer
+
+  persistence:
+
+persistence:
+  # CRITICAL FIX 1: Set 'enabled' here to control the main volume's PVC template
+  enabled: true
+
+  # CRITICAL FIX 2: Set the correct Storage Class to enable dynamic provisioning
+  # The previous Helm chart issue was likely because this was unset or set incorrectly.
+  storageClass: 'gp2'
+
+  # CRITICAL FIX 3: Explicitly override any lingering static claim expectation
+  # Setting this to null or "" ensures the chart uses volumeClaimTemplates
+  existingClaim: ''
+
+  # CRITICAL FIX 4: Set the desired size for the dynamically created PVC
+  size: '20Gi'
+
+  # Optional: Set access mode if needed (default is usually ReadWriteOnce)
+  accessMode: 'ReadWriteOnce'
