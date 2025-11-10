@@ -7,10 +7,32 @@ spec:
   serviceAccountName: jenkins
   containers:
     - name: kaniko
-      image: gcr.io/kaniko-project/executor:debug
+      image: gcr.io/kaniko-project/executor:v1.19.0-debug
       imagePullPolicy: IfNotPresent
       command:
         - sleep
       args:
         - 9999999
+      env:
+        - name: AWS_REGION
+          value: 'eu-north-1'
+        - name: AWS_DEFAULT_REGION
+          value: 'eu-north-1'
+        - name: AWS_SDK_LOAD_CONFIG
+          value: 'true'
+        - name: AWS_ROLE_SESSION_NAME
+          value: 'kaniko-session'
+      volumeMounts:
+        - name: aws-iam-token
+          mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
+          readOnly: true
+  volumes:
+    - name: aws-iam-token
+      projected:
+        defaultMode: 420
+        sources:
+          - serviceAccountToken:
+              audience: sts.amazonaws.com
+              expirationSeconds: 86400
+              path: token
   restartPolicy: Never

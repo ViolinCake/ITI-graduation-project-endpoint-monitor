@@ -41,24 +41,12 @@ pipeline {
             }
         }
 
-        stage('Get ECR Token') {
+        stage('Prepare Build Context') {
             steps {
                 script {
-                    echo "🔐 Getting ECR authentication token..."
-                    
-                    // Get ECR token using Jenkins AWS credentials
-                    withAWS(region: env.AWS_REGION) {
-                        env.ECR_TOKEN = sh(
-                            script: "aws ecr get-login-password --region ${env.AWS_REGION}",
-                            returnStdout: true
-                        ).trim()
-                    }
-                    
-                    if (!env.ECR_TOKEN) {
-                        error("Failed to get ECR authentication token")
-                    }
-                    
-                    echo "✅ ECR token obtained successfully"
+                    echo "� Preparing build context for Kaniko..."
+                    echo "✅ Using Jenkins service account with ECR permissions"
+                    echo "IAM Role: ${env.JENKINS_ROLE_ARN ?: 'Using default service account role'}"
                 }
             }
         }
@@ -89,27 +77,20 @@ pipeline {
                 container('kaniko') {
                     script {
                         echo "🚀 Building and pushing image with Kaniko..."
-                        echo "📋 Setting up ECR authentication..."
+                        echo "📋 Using service account IAM role for ECR authentication"
                         
                         sh '''
-                            # Create Kaniko Docker config directory
-                            mkdir -p /kaniko/.docker
+                            echo "Environment variables:"
+                            echo "AWS_REGION: ${AWS_REGION}"
+                            echo "AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-not set}"
+                            echo "ECR_REGISTRY: ${ECR_REGISTRY}"
+                            echo "IMAGE_NAME: ${IMAGE_NAME}"
+                            echo "IMAGE_LATEST: ${IMAGE_LATEST}"
                             
-                            # Create Docker config with ECR auth
-                            cat > /kaniko/.docker/config.json << EOF
-{
-  "auths": {
-    "${ECR_REGISTRY}": {
-      "auth": "$(echo -n "AWS:${ECR_TOKEN}" | base64 -w 0)"
-    }
-  }
-}
-EOF
+                            echo "Build context check:"
+                            ls -la ${WORKSPACE}/node_app
                             
-                            echo "✅ ECR authentication configured"
-                            echo "Registry: ${ECR_REGISTRY}"
-                            
-                            echo "🏗️ Starting Kaniko build..."
+                            echo "🏗️ Starting Kaniko build with IAM role authentication..."
                             /kaniko/executor \\
                               --context ${WORKSPACE}/node_app \\
                               --dockerfile ${WORKSPACE}/node_app/Dockerfile \\
