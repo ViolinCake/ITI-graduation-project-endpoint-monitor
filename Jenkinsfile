@@ -40,6 +40,31 @@ pipeline {
                 echo "🏗️ Build Number: ${BUILD_NUMBER}"
             }
         }
+
+        stage('Configure Kaniko Auth for ECR') {
+            steps {
+                container('kaniko') {
+                    sh '''
+                    echo "🔐 Setting up Kaniko authentication for ECR..."
+                    mkdir -p /kaniko/.docker
+
+                    # Get AWS ECR login password and create Docker config for Kaniko
+                    AUTH_TOKEN=$(aws ecr get-login-password --region $AWS_REGION | base64 | tr -d '\n')
+                    cat > /kaniko/.docker/config.json <<EOF
+                    {
+                      "auths": {
+                        "${ECR_REPO}": {
+                          "auth": "${AUTH_TOKEN}"
+                        }
+                      }
+                    }
+                    EOF
+
+                    echo "✅ Kaniko auth config created."
+                    '''
+                }
+            }
+        }
         
         stage('Build & Push with Kaniko') {
             steps {
