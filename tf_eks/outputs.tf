@@ -58,9 +58,9 @@ output "ssh_command" {
   value       = "ssh -i ${local_file.private_key.filename} ec2-user@${aws_instance.bastion.public_ip}"
 }
 
-output "ssm_command" {
-  description = "Command to connect via AWS Systems Manager"
-  value       = "aws ssm start-session --target ${aws_instance.bastion.id} --region ${var.aws_region}"
+output "jenkins_target_group_agent_arn" {
+  description = "ARN of Jenkins agent target group"
+  value       = aws_lb_target_group.jenkins_agent.arn
 }
 
 output "configure_kubectl_command" {
@@ -76,8 +76,13 @@ output "jenkins_role_arn" {
   value       = aws_iam_role.jenkins.arn
 }
 
-# Jenkins URL will be available after manual deployment from bastion
-# output "jenkins_url" {
-#   description = "Jenkins URL"
-#   value       = "Will be available after manual Jenkins deployment from bastion"
-# }
+# Jenkins Load Balancer URL
+output "jenkins_url" {
+  description = "Jenkins URL via Terraform-managed Load Balancer"
+  value       = "http://${aws_lb.jenkins.dns_name}:8080"
+}
+
+output "jenkins_load_balancer_dns" {
+  description = "DNS name of Jenkins Load Balancer"
+  value       = aws_lb.jenkins.dns_name
+}

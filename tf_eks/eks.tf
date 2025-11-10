@@ -31,3 +31,54 @@ resource "aws_eks_cluster" "eks_cluster" {
     support_type = "STANDARD"
   }
 }
+
+# IAM role for EBS CSI driver
+resource "aws_iam_role" "ebs_csi_driver" {
+  name = "${var.cluster_name}-ebs-csi-driver-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Effect = "Allow"
+        Sid    = ""
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.eks.arn
+        }
+        Condition = {
+          StringEquals = {
+            "${replace(aws_iam_openid_connect_provider.eks.url, "https://", "")}:sub": "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+            "${replace(aws_iam_openid_connect_provider.eks.url, "https://", "")}:aud": "sts.amazonaws.com"
+          }
+        }
+      },
+    ]
+  })
+
+  tags = {
+    Name = "${var.cluster_name}-ebs-csi-driver-role"
+  }
+}
+
+# Attach AWS managed policy for EBS CSI driver
+resource "aws_iam_role_policy_attachment" "ebs_csi_driver_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  role       = aws_iam_role.ebs_csi_driver.name
+}
+
+# Install EBS CSI driver addon
+resource "aws_eks_addon" "ebs_csi_driver" {
+  cluster_name             = aws_eks_cluster.eks_cluster.name
+  addon_name               = "aws-ebs-csi-driver"
+  service_account_role_arn = aws_iam_role.ebs_csi_driver.arn
+
+  # Use the new arguments to resolve the deprecation warning
+  resolve_conflicts_on_create = "OVERWRITE" 
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  depends_on = [
+    aws_iam_role_policy_attachment.ebs_csi_driver_policy,
+    aws_eks_node_group.eks_nodes,
+  ]
+}

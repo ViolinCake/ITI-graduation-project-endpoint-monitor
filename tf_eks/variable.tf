@@ -52,18 +52,18 @@ variable "public_subnet_cidrs" {
 }
 variable "node_instance_type" {
   type        = string
-  default     = "t3.micro"
+  default     = "m7i-flex.large"
   description = "EC2 instance type for EKS nodes"
 }
 variable "node_desired_size" {
   type        = number
-  default     = 2
+  default     = 3
   description = "Desired number of worker nodes"
 }
 variable "node_min_size" {
   description = "Minimum number of worker nodes"
   type        = number
-  default     = 1
+  default     = 2
 }
 variable "node_max_size" {
   description = "Maximum number of worker nodes"
