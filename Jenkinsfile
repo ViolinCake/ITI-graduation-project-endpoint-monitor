@@ -41,21 +41,23 @@ pipeline {
             }
         }
 
-        stage('Prepare ECR Auth Config') {
+        stage('Verify Environment') {
             steps {
-                withAWS(region: "${env.AWS_REGION}", credentials: 'AWS') {
-                    script {
-                        echo "🔐 Generating ECR credentials for Kaniko..."
-
-                        sh """
-                        mkdir -p /kaniko/.docker
-                        aws ecr get-login-password --region ${AWS_REGION} | \\
-                        docker login --username AWS --password-stdin ${ECR_REGISTRY}
-
-                        mkdir -p ~/.docker
-                        cat ~/.docker/config.json > /kaniko/.docker/config.json || true
-                        """
-                    }
+                script {
+                    echo "🔍 Verifying build environment..."
+                    echo "Workspace: ${WORKSPACE}"
+                    echo "Build Number: ${BUILD_NUMBER}"
+                    echo "ECR Registry: ${ECR_REGISTRY}"
+                    echo "Image Name: ${IMAGE_NAME}"
+                    
+                    sh '''
+                        echo "Checking workspace structure:"
+                        ls -la ${WORKSPACE}
+                        echo "Checking node_app:"
+                        ls -la ${WORKSPACE}/node_app || echo "node_app not found"
+                        echo "Checking Dockerfile:"
+                        ls -la ${WORKSPACE}/node_app/Dockerfile || echo "Dockerfile not found"
+                    '''
                 }
             }
         }
@@ -64,23 +66,18 @@ pipeline {
             steps {
                 container('kaniko') {
                     script {
-                        echo "� Building and pushing image with Kaniko..."
-                        echo "📋 Using pre-configured Docker auth from previous stage"
+                        echo "🚀 Building and pushing image with Kaniko..."
+                        echo "📋 Using Jenkins service account IAM role for ECR authentication"
                         
                         sh '''
-                            echo "Verifying Kaniko auth config..."
-                            ls -la /kaniko/.docker/ || echo "No auth config found, will use IAM role"
-                            
-                            echo "Starting Kaniko build..."
+                            echo "Starting Kaniko build with simplified approach..."
                             /kaniko/executor \\
                               --context ${WORKSPACE}/node_app \\
                               --dockerfile ${WORKSPACE}/node_app/Dockerfile \\
                               --destination ${IMAGE_NAME} \\
                               --destination ${IMAGE_LATEST} \\
-                              --use-new-run \\
-                              --cache=true \\
-                              --single-snapshot \\
-                              --verbosity=info
+                              --verbosity=info \\
+                              --force
                         '''
                     }
                 }
