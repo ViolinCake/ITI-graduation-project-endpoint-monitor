@@ -48,36 +48,44 @@ pipeline {
                         script {
                             echo "🔧 Preparing ECR authentication for Kaniko..."
                             
-                            sh """
-                            mkdir -p /kaniko/.docker
-
-                            ACCOUNT="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-
-                            # Get ECR token and encode properly
-                            AUTH_TOKEN=$(aws ecr get-login-password --region ${AWS_REGION})
-                            AUTH_BASE64=$(echo -n "AWS:${AUTH_TOKEN}" | base64 -w 0)
-
-                            # Write valid JSON config
-                            echo -n "{\"auths\":{\"https://${ACCOUNT}\":{\"auth\":\"${AUTH_BASE64}\"}}}" > /kaniko/.docker/config.json
-
-                            echo "--- Kaniko Docker config ---"
-                            cat /kaniko/.docker/config.json
-                            echo ""
-                            echo "--- End of file ---"
-                            """
-
+                            sh '''
+                                mkdir -p /kaniko/.docker
+                                
+                                echo "Getting ECR login token..."
+                                AUTH_TOKEN=$(aws ecr get-login-password --region ${AWS_REGION})
+                                
+                                if [ -z "$AUTH_TOKEN" ]; then
+                                    echo "❌ Failed to get ECR auth token"
+                                    exit 1
+                                fi
+                                
+                                echo "Creating Kaniko auth config..."
+                                cat > /kaniko/.docker/config.json << EOF
+{
+  "auths": {
+    "https://${ECR_REGISTRY}": {
+      "auth": "$(echo -n "AWS:${AUTH_TOKEN}" | base64 -w 0)"
+    }
+  }
+}
+EOF
+                                
+                                echo "✅ Kaniko auth config created:"
+                                cat /kaniko/.docker/config.json | jq '.' || cat /kaniko/.docker/config.json
+                            '''
 
                             echo "🚀 Building and pushing image with Kaniko..."
-                            sh """
-                                /kaniko/executor \\
-                                  --context ${WORKSPACE}/node_app \\
-                                  --dockerfile ${WORKSPACE}/node_app/Dockerfile \\
-                                  --destination ${IMAGE_NAME} \\
-                                  --destination ${IMAGE_LATEST} \\
-                                  --use-new-run \\
-                                  --cache=true \\
-                                  --single-snapshot
-                            """
+                            sh '''
+                                /kaniko/executor \
+                                  --context ${WORKSPACE}/node_app \
+                                  --dockerfile ${WORKSPACE}/node_app/Dockerfile \
+                                  --destination ${IMAGE_NAME} \
+                                  --destination ${IMAGE_LATEST} \
+                                  --use-new-run \
+                                  --cache=true \
+                                  --single-snapshot \
+                                  --verbosity=info
+                            '''
                         }
                     }
                 }
