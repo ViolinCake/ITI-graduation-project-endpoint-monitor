@@ -4,7 +4,7 @@ metadata:
   name: kaniko-builder
   namespace: jenkins
 spec:
-  serviceAccountName: jenkins-agent
+  serviceAccountName: jenkins
   containers:
     - name: kaniko
       image: gcr.io/kaniko-project/executor:debug
