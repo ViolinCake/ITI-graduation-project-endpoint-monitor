@@ -2,3 +2,4 @@ sudo tail -n 50 /var/log/bastion-setup.log
 sudo cat /var/log/sc-apply.log -----That file contains the full stderr/stdout from kubectl apply.
 
 cat /home/ec2-user/jenkins-password.txt
+update to trigger jenkins pipeline
