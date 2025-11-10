@@ -39,11 +39,8 @@ Thumbs.db
 # Build
 dist/
 build/
-<<<<<<< HEAD
-=======
 .terraform/
 .terraform.lock.hcl
 *.tfstate
 *.tfstate.backup
 
->>>>>>> e33acf5 (adding the rds + secrets infra)

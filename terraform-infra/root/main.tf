@@ -32,7 +32,7 @@ provider "kubernetes" {
 }
 
 provider "helm" {
-  kubernetes {
+  kubernetes= {
     host                   = module.eks.eks-cluster-endpoint
     cluster_ca_certificate = base64decode(module.eks.eks-cluster-CA)
     exec = {
@@ -59,7 +59,6 @@ module "eks" {
   private-subnet-1 = module.network.private-subnet-1-id
   private-subnet-2 = module.network.private-subnet-2-id
   bastion-host-sg = module.jump_server.bastion-sg-id
-  codebuild-sg = module.jump_server.bastion-sg-id # مؤقت
   ebs_csi_policy_attachment_id = module.node_groupe.ebs_csi_policy_attachment_id
 }
 
@@ -90,6 +89,7 @@ module "node_groupe" {
 module "instance_profile" {
   source        = "../instanceProfile"
   cluster_name  = var.cluster_name
+  eks_dependency = module.eks
 }
 
 # 💻 Jump Server
@@ -98,6 +98,7 @@ module "jump_server" {
   vpc-id               = module.network.vpc-id
   subnet-id            = module.network.public-subnet-1-id
   iam-instance-profile = module.instance_profile.instance-profile-name
+  eks_dependency = module.eks
   # bastion_ip = module.jump_server.bastion_public_ip
 
 }
@@ -110,6 +111,7 @@ module "fargate" {
   cluster_name    = var.cluster_name
   private-subnet-1= module.network.private-subnet-1-id
   private-subnet-2= module.network.private-subnet-2-id
+  eks_dependency = module.eks
 }
 
 # 🗄️ RDS
@@ -135,4 +137,3 @@ module "secret_manager" {
   db_password  = module.rds.db_password
   rds_endpoint = module.rds.db_endpoint
 }
-

@@ -30,6 +30,6 @@ variable "ebs_csi_policy_attachment_id" {
   description = "EBS CSI policy attachment ID from node group module"
   type        = string
 }
-variable "codebuild-sg" {
-  type = string
-}
+# variable "codebuild-sg" {
+#   type = string
+# }

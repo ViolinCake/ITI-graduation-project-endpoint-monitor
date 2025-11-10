@@ -7,3 +7,6 @@ variable "subnet-id" {
 variable "iam-instance-profile" {
   type = string
 }
+variable "eks_dependency" {
+  type = any
+}

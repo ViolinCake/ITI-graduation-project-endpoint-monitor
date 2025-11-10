@@ -7,6 +7,7 @@ variable "region" {
 variable "cluster_name" {
   description = "EKS Cluster name"
   type        = string
+  default = "demo-eks-cluster"
 }
 
 variable "eks_version" {
@@ -15,10 +16,6 @@ variable "eks_version" {
   default     = "1.31"
 }
 
-# variable "tags" {
-#   description = "Common tags for all resources"
-#   type        = map(string)
-# }
 variable "tags" {
   type = map(string)
   default = {
@@ -36,11 +33,13 @@ variable "project_name" {
 variable "db_name" {
   description = "Database name for RDS"
   type        = string
+  default = "DB_NAME"
 }
 
 variable "db_username" {
   description = "Master username for RDS"
   type        = string
+  default = "DB_USER"
 }
 
 variable "db_password" {
@@ -52,4 +51,5 @@ variable "db_password" {
 variable "secret_name" {
   description = "Name for the AWS Secret Manager secret"
   type        = string
+  default = "secrets"
 }

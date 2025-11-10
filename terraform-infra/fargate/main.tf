@@ -34,8 +34,8 @@ resource "aws_eks_fargate_profile" "demo-eks-fg-prof" {
   selector {
     namespace = "default"
   }
-  selector {
-    namespace = "kube-system"
-  }
-  depends_on = [aws_iam_role_policy_attachment.fargate-execution-policy]
+  # selector {
+  #   namespace = "kube-system"
+  # }
+  depends_on = [aws_iam_role_policy_attachment.fargate-execution-policy,var.eks_dependency]
 }

@@ -1,9 +1,6 @@
-<<<<<<< HEAD
-=======
 variable "vpc-id" {
   type = string
 }
->>>>>>> e33acf5 (adding the rds + secrets infra)
 variable "cluster_name" {
   type = string
   default = "demo-eks-cluster"

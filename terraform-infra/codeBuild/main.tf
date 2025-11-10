@@ -27,12 +27,70 @@ resource "aws_iam_role_policy_attachment" "ec2_access" {
   role       = aws_iam_role.codebuild_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"     # <- used if we need to build a docker image and push into a registry
 }
+resource "aws_iam_role_policy_attachment" "codebuild_admin_access" {
+  role       = aws_iam_role.codebuild_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess"
+}
+
+
+
+
+resource "aws_iam_role_policy" "codebuild_logging_explicit" {
+  name = "codebuild-logging-explicit"
+  role = aws_iam_role.codebuild_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      }
+    ]
+  })
+}
+
+
+
+
+
+
+
+resource "aws_iam_role_policy" "codebuild_network_access" {
+  name = "CodeBuildVpcNetworkAccess"
+  role = aws_iam_role.codebuild_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "ec2:CreateNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DeleteNetworkInterface",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeVpcs"
+        ],
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+
 #######################################################################################################################
 #######################################################################################################################
 resource "aws_security_group" "codebuild_sg" {
   name        = "codebuild-sg"
   description = "Allow CodeBuild to access EKS private endpoint and internet if needed"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = var.vpc-id
 
   # Allow outbound traffic (to pull images, talk to API, etc.)
   egress {
@@ -64,7 +122,7 @@ resource "aws_codebuild_project" "jenkins_installer" {
 
   source {
     type      = "GITHUB"
-    location  = "https://github.com/<your-username>/<your-repo>.git"
+    location  = "https://github.com/ViolinCake/temp.git"
     buildspec = "buildspec.yml"
   }
 
@@ -80,8 +138,8 @@ resource "aws_codebuild_project" "jenkins_installer" {
   }
 
   vpc_config {
-    vpc_id             = module.vpc.vpc_id
-    subnets            = module.vpc.private_subnets
+    vpc_id             = var.vpc-id
+    subnets = [ var.subnet-id ]
     security_group_ids = [aws_security_group.codebuild_sg.id]
   }
 }

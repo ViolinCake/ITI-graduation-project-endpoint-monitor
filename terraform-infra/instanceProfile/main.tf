@@ -22,10 +22,48 @@ data "aws_iam_policy_document" "eks_read_access" {
     actions = [
       "eks:DescribeCluster",
       "eks:ListClusters",
+      "eks:DescribeClusterVersions", #<- needed for creating the IRSA
+      "iam:GetOpenIDConnectProvider", # <- the following permissions needed for the OICD provider
+      "iam:GetOpenIDConnectProvider",
+      "iam:ListOpenIDConnectProviders",
+      "iam:CreateOpenIDConnectProvider",
+      "iam:TagOpenIDConnectProvider",
+      "iam:DeleteOpenIDConnectProvider",
+      "eks:TagResource",
+      "cloudformation:DescribeStacks",  #<- the following permissions are needed for the eksctl cloudformation
+      "cloudformation:DescribeStackResources",
+      "cloudformation:ListStacks",
+      "cloudformation:ListStackResources",
+      "cloudformation:GetTemplateSummary",
+      "cloudformation:CreateStack"
     ]
     resources = [
       "*" # Scope this to your specific EKS cluster ARN for max least-privilege
     ]
+  }
+  statement {
+    effect = "Allow"
+    actions = [ 
+      # Policy Management             
+      "iam:CreatePolicy",
+      "iam:DeletePolicy",
+      "iam:GetPolicy",
+      "iam:GetPolicyVersion",
+      "iam:CreatePolicyVersion",
+      "iam:SetDefaultPolicyVersion",
+      "iam:DeletePolicyVersion",
+      
+      # Role Management (used by eksctl when creating iamserviceaccount)
+      "iam:CreateRole",
+      "iam:DeleteRole",
+      "iam:PutRolePolicy",
+      "iam:AttachRolePolicy",
+      "iam:DetachRolePolicy",
+      "iam:TagRole",
+      "iam:PassRole",
+      "iam:GetRole"
+     ]
+     resources = [ "*" ]
   }
 }
 
@@ -55,6 +93,7 @@ resource "aws_eks_access_entry" "bastion_access" {
   cluster_name  = var.cluster_name
   principal_arn = aws_iam_role.bastion_eks_role.arn
   type          = "STANDARD"
+  depends_on = [ var.eks_dependency ]
 }
 
 resource "aws_eks_access_policy_association" "bastion_policy" {
@@ -64,4 +103,5 @@ resource "aws_eks_access_policy_association" "bastion_policy" {
   access_scope {
     type = "cluster"
   }
+  depends_on = [ var.eks_dependency ]
 }

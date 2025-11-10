@@ -10,3 +10,6 @@ variable "private-subnet-1" {
 variable "private-subnet-2" {
   type = string
 }
+variable "eks_dependency" {
+  type = any
+}
