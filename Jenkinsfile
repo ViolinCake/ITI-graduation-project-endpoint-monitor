@@ -1,9 +1,10 @@
 pipeline {
     agent {
         kubernetes {
-        yamlFile 'kaniko/index.yaml'
+            yamlFile 'kaniko/index.yaml'
         }
     }
+    
     environment {
         AWS_REGION       = 'eu-north-1'
         AWS_ACCOUNT_ID   = '428346553093'
@@ -40,41 +41,40 @@ pipeline {
             }
         }
         
-    
-    stage('Build & Push with Kaniko') {
-      steps {
-        container('kaniko') {
-          withAWS(credentials: 'aws-credentials', region: "${AWS_REGION}") {
-            script {
-              echo "🔧 Preparing ECR authentication for Kaniko..."
-              
-              sh '''
-                mkdir -p /kaniko/.docker
-                AUTH=$(aws ecr get-login-password --region ${AWS_REGION} | base64 -w 0)
-                ACCOUNT="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-                echo -n "{\"auths\":{\"https://${ACCOUNT}\":{\"auth\":\"AWS:${AUTH}\"}}}" > /kaniko/.docker/config.json
-                echo "--- Kaniko Docker config ---"
-                cat /kaniko/.docker/config.json
-                echo "-----------------------------"
-              '''
+        stage('Build & Push with Kaniko') {
+            steps {
+                container('kaniko') {
+                    withAWS(credentials: 'aws-credentials', region: "${AWS_REGION}") {
+                        script {
+                            echo "🔧 Preparing ECR authentication for Kaniko..."
+                            
+                            sh '''
+                                mkdir -p /kaniko/.docker
+                                AUTH=$(aws ecr get-login-password --region ${AWS_REGION} | base64 -w 0)
+                                ACCOUNT="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+                                echo -n "{\"auths\":{\"https://${ACCOUNT}\":{\"auth\":\"AWS:${AUTH}\"}}}" > /kaniko/.docker/config.json
+                                echo "--- Kaniko Docker config ---"
+                                cat /kaniko/.docker/config.json
+                                echo "-----------------------------"
+                            '''
 
-              echo "🚀 Building and pushing image with Kaniko..."
-              sh """
-                /kaniko/executor \
-                  --context ${WORKSPACE} \
-                  --dockerfile ${WORKSPACE}/Dockerfile \
-                  --destination ${IMAGE_NAME} \
-                  --destination ${IMAGE_LATEST} \
-                  --use-new-run \
-                  --cache=true \
-                  --single-snapshot
-              """
+                            echo "🚀 Building and pushing image with Kaniko..."
+                            sh """
+                                /kaniko/executor \\
+                                  --context ${WORKSPACE} \\
+                                  --dockerfile ${WORKSPACE}/Dockerfile \\
+                                  --destination ${IMAGE_NAME} \\
+                                  --destination ${IMAGE_LATEST} \\
+                                  --use-new-run \\
+                                  --cache=true \\
+                                  --single-snapshot
+                            """
+                        }
+                    }
+                }
             }
-          }
         }
-      }
     }
-
     
     post {
         success {
@@ -85,11 +85,13 @@ pipeline {
             echo "☁️ ECR: ${ECR_REGISTRY}/${ECR_REPOSITORY}"
             echo "🚀 Deployed to EKS: ${EKS_CLUSTER_NAME}"
         }
+        
         failure {
             echo '❌ ====================================='
             echo '❌ Pipeline failed!'
             echo '❌ ====================================='
         }
+        
         always {
             echo '🧹 Cleaning up workspace...'
             cleanWs()
