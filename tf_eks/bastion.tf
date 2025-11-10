@@ -137,7 +137,8 @@ resource "aws_instance" "bastion" {
 
   depends_on = [
     aws_eks_cluster.eks_cluster,
-    aws_key_pair.bastion_key
+    aws_key_pair.bastion_key,
+    aws_iam_role.jenkins
   ]
 }
 

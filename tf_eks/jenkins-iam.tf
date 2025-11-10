@@ -15,7 +15,9 @@ resource "aws_iam_policy" "jenkins_ecr" {
           "ecr:PutImage",
           "ecr:InitiateLayerUpload",
           "ecr:UploadLayerPart",
-          "ecr:CompleteLayerUpload"
+          "ecr:CompleteLayerUpload",
+          "secretsmanager:GetSecretValue",
+          "sts:GetCallerIdentity"
         ],
         Resource = "*"
       }

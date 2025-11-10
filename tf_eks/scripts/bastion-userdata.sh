@@ -6,8 +6,8 @@ set -euo pipefail
 # -------------------------
 AWS_REGION="${aws_region}"
 CLUSTER_NAME="${cluster_name}"
-JENKINS_ROLE_ARN="$${jenkins_role_arn:-}"
-JENKINS_ADMIN_SECRET_NAME="$${jenkins_admin_secret_name:-JenkinsAdminPassword}"
+JENKINS_ROLE_ARN="${jenkins_role_arn}"
+JENKINS_ADMIN_SECRET_NAME="${jenkins_admin_secret_name}"
 
 LOG_FILE="/var/log/bastion-setup.log"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting Bastion Setup" | tee -a "$LOG_FILE"
@@ -16,6 +16,18 @@ log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
+# -------------------------
+# DEBUG: Check variable substitution
+# -------------------------
+log "DEBUG: Checking variable substitution..."
+log "DEBUG: AWS_REGION=$AWS_REGION"
+log "DEBUG: CLUSTER_NAME=$CLUSTER_NAME"
+log "DEBUG: JENKINS_ROLE_ARN=$JENKINS_ROLE_ARN"
+log "DEBUG: JENKINS_ADMIN_SECRET_NAME=$JENKINS_ADMIN_SECRET_NAME"
+
+# Also check if the variable is being passed correctly from Terraform
+log "DEBUG: Checking if jenkins_role_arn is available in environment..."
+env | grep -i jenkins >> "$LOG_FILE" || log "DEBUG: No jenkins-related environment variables found"
 # -------------------------
 # System update & deps
 # -------------------------
@@ -210,7 +222,7 @@ chown ec2-user:ec2-user /home/ec2-user/.bashrc
 # Prepare Jenkins Helm values file
 # -------------------------
 log "Writing jenkins-values.yaml..."
-cat > /home/ec2-user/jenkins-values.yaml <<'JENKINS_VALUES'
+cat > /home/ec2-user/jenkins-values.yaml <<JENKINS_VALUES
 controller:
   image:
     registry: "docker.io"
@@ -265,7 +277,7 @@ serviceAccount:
   create: true
   name: jenkins
   annotations:
-    eks.amazonaws.com/role-arn: "$${JENKINS_ROLE_ARN}"
+    eks.amazonaws.com/role-arn: ${jenkins_role_arn}
 
 rbac:
   create: true

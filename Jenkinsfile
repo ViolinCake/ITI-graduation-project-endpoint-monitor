@@ -40,7 +40,38 @@ pipeline {
                 echo "🏗️ Build Number: ${BUILD_NUMBER}"
             }
         }
-
+    stage('Debug IAM in Kaniko Pod') {
+        steps {
+            container('kaniko') {
+                script {
+                    sh '''
+                        echo "=== Checking IAM Role in Kaniko Container ==="
+                        
+                        # Check environment variables that should be injected by IRSA
+                        echo "AWS_ROLE_ARN: ${AWS_ROLE_ARN:-NOT SET ❌}"
+                        echo "AWS_WEB_IDENTITY_TOKEN_FILE: ${AWS_WEB_IDENTITY_TOKEN_FILE:-NOT SET ❌}"
+                        echo "AWS_REGION: ${AWS_REGION}"
+                        
+                        # Check if service account token exists
+                        if [ -f "${AWS_WEB_IDENTITY_TOKEN_FILE}" ]; then
+                            echo "✅ Token file exists at: ${AWS_WEB_IDENTITY_TOKEN_FILE}"
+                            echo "Token content (first 50 chars):"
+                            head -c 50 "${AWS_WEB_IDENTITY_TOKEN_FILE}"
+                            echo "..."
+                        else
+                            echo "❌ Token file does NOT exist"
+                            echo "Checking /var/run/secrets/eks.amazonaws.com/serviceaccount/"
+                            ls -la /var/run/secrets/eks.amazonaws.com/serviceaccount/ 2>&1 || echo "Directory not found"
+                        fi
+                        
+                        # Check what credentials Kaniko will use
+                        echo "=== Checking Docker config ==="
+                        cat /kaniko/.docker/config.json 2>/dev/null || echo "No docker config yet"
+                    '''
+                }
+            }
+        }
+    }
         stage('Prepare Build Context') {
             steps {
                 script {
