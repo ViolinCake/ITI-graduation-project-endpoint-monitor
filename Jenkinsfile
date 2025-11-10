@@ -41,6 +41,28 @@ pipeline {
             }
         }
 
+        stage('Get ECR Token') {
+            steps {
+                script {
+                    echo "🔐 Getting ECR authentication token..."
+                    
+                    // Get ECR token using Jenkins AWS credentials
+                    withAWS(region: env.AWS_REGION) {
+                        env.ECR_TOKEN = sh(
+                            script: "aws ecr get-login-password --region ${env.AWS_REGION}",
+                            returnStdout: true
+                        ).trim()
+                    }
+                    
+                    if (!env.ECR_TOKEN) {
+                        error("Failed to get ECR authentication token")
+                    }
+                    
+                    echo "✅ ECR token obtained successfully"
+                }
+            }
+        }
+
         stage('Verify Environment') {
             steps {
                 script {
@@ -67,10 +89,27 @@ pipeline {
                 container('kaniko') {
                     script {
                         echo "🚀 Building and pushing image with Kaniko..."
-                        echo "📋 Using Jenkins service account IAM role for ECR authentication"
+                        echo "📋 Setting up ECR authentication..."
                         
                         sh '''
-                            echo "Starting Kaniko build with simplified approach..."
+                            # Create Kaniko Docker config directory
+                            mkdir -p /kaniko/.docker
+                            
+                            # Create Docker config with ECR auth
+                            cat > /kaniko/.docker/config.json << EOF
+{
+  "auths": {
+    "${ECR_REGISTRY}": {
+      "auth": "$(echo -n "AWS:${ECR_TOKEN}" | base64 -w 0)"
+    }
+  }
+}
+EOF
+                            
+                            echo "✅ ECR authentication configured"
+                            echo "Registry: ${ECR_REGISTRY}"
+                            
+                            echo "🏗️ Starting Kaniko build..."
                             /kaniko/executor \\
                               --context ${WORKSPACE}/node_app \\
                               --dockerfile ${WORKSPACE}/node_app/Dockerfile \\
