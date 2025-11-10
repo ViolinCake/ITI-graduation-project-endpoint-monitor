@@ -44,7 +44,7 @@ pipeline {
         stage('Build & Push with Kaniko') {
             steps {
                 container('kaniko') {
-                    withAWS(credentials: 'aws-credentials', region: "${AWS_REGION}") {
+                    withAWS(credentials: 'AWS', region: "${AWS_REGION}") {
                         script {
                             echo "🔧 Preparing ECR authentication for Kaniko..."
                             
