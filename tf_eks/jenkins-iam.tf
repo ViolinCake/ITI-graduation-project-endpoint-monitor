@@ -27,28 +27,59 @@ resource "aws_iam_policy" "jenkins_ecr" {
 
 # Jenkins IAM Role (IRSA)
 resource "aws_iam_role" "jenkins" {
-  name = "${var.cluster_name}-jenkins-role"
-
+  name               = "${var.cluster_name}-jenkins-role"
   assume_role_policy = jsonencode({
-    Version = "2012-10-17",
+    Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow",
+        Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.eks.arn
-        },
-        Action = "sts:AssumeRoleWithWebIdentity",
-        Condition = {
-          StringEquals = {
-            "${replace(aws_iam_openid_connect_provider.eks.url, "https://", "")}:sub" = "system:serviceaccount:jenkins:jenkins",
-            "${replace(aws_iam_openid_connect_provider.eks.url, "https://", "")}:aud" = "sts.amazonaws.com"
-          }
+          Service = "pods.eks.amazonaws.com"
         }
+        Action = [
+          "sts:AssumeRole",
+          "sts:TagSession"
+        ]
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "${var.cluster_name}-jenkins-role"
+    ManagedBy   = "Terraform"
+  }
+}
+resource "aws_iam_role_policy" "jenkins_ecr_push" {
+  name   = "${var.cluster_name}-jenkins-ecr-push"
+  role   = aws_iam_role.jenkins.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "PushToECR"
+        Effect = "Allow"
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:PutImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:BatchCheckLayerAvailability"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "GetAuthorizationToken"
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken"
+        ]
+        Resource = "*"
       }
     ]
   })
 }
-
 # Attach the ECR policy to Jenkins Role
 resource "aws_iam_role_policy_attachment" "jenkins_ecr" {
   policy_arn = aws_iam_policy.jenkins_ecr.arn

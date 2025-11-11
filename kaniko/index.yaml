@@ -20,25 +20,4 @@ spec:
           value: 'eu-north-1'
         - name: AWS_SDK_LOAD_CONFIG
           value: 'true'
-        - name: AWS_ROLE_SESSION_NAME
-          value: 'kaniko-session'
-        # ✅ Explicitly tell Kaniko/AWS SDK where the web identity token is
-        - name: AWS_WEB_IDENTITY_TOKEN_FILE
-          value: '/var/run/secrets/eks.amazonaws.com/serviceaccount/token'
-        # ✅ Explicitly set the IAM role (the same one in your service account annotation)
-        - name: AWS_ROLE_ARN
-          value: 'arn:aws:iam::428346553093:role/ITI-GP-Cluster-jenkins-role'
-      volumeMounts:
-        - name: aws-iam-token
-          mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
-          readOnly: true
-  volumes:
-    - name: aws-iam-token
-      projected:
-        defaultMode: 420
-        sources:
-          - serviceAccountToken:
-              audience: sts.amazonaws.com
-              expirationSeconds: 86400
-              path: token
   restartPolicy: Never
