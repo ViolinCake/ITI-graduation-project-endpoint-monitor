@@ -4,7 +4,7 @@ pipeline {
             yamlFile 'kaniko/index.yaml'
         }
     }
-    
+
     environment {
         AWS_REGION       = 'eu-north-1'
         AWS_ACCOUNT_ID   = '428346553093'
@@ -47,8 +47,8 @@ pipeline {
                     script {
                         sh '''
                             echo "=== 🧰 Installing AWS CLI inside Kaniko ==="
-                            apk add --no-cache python3 py3-pip groff less curl jq > /dev/null
-                            pip install awscli --quiet
+                            apt-get update -y && apt-get install -y python3 python3-pip groff less curl jq unzip > /dev/null
+                            pip3 install awscli --break-system-packages --quiet
 
                             echo "=== 🔍 Checking AWS CLI Installation ==="
                             aws --version || { echo "❌ AWS CLI not found"; exit 1; }
