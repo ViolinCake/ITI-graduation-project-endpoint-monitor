@@ -35,7 +35,21 @@ spec:
       command: ['/busybox/sleep']
       args: ['99999']
       tty: true
-
+      env:
+        - name: AWS_REGION
+          value: eu-north-1
+        - name: AWS_DEFAULT_REGION
+          value: eu-north-1
+        - name: AWS_SDK_LOAD_CONFIG
+          value: 'true'
+        - name: AWS_EC2_METADATA_DISABLED
+          value: 'false'
+        - name: AWS_METADATA_SERVICE_TIMEOUT
+          value: '10'
+        - name: AWS_METADATA_SERVICE_NUM_ATTEMPTS
+          value: '3'
+        - name: DOCKER_CONFIG
+          value: /kaniko/.docker/
   volumes:
     - name: workspace-volume
       emptyDir: {}
