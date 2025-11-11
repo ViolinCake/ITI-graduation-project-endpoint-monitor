@@ -3,8 +3,14 @@ kind: Pod
 metadata:
   name: kaniko-builder
   namespace: jenkins
+  labels:
+    app: jenkins-kaniko
 spec:
-  serviceAccountName: jenkins
+  serviceAccountName: jenkins #
+  restartPolicy: Never
+  nodeSelector:
+    kubernetes.io/os: linux
+
   containers:
     - name: kaniko
       image: gcr.io/kaniko-project/executor:debug
@@ -13,27 +19,58 @@ spec:
         - sleep
       args:
         - '9999999'
+
+      # Environment configuration for debugging and region awareness
       env:
         - name: AWS_REGION
-          value: 'eu-north-1'
+          value: eu-north-1
         - name: AWS_DEFAULT_REGION
-          value: 'eu-north-1'
+          value: eu-north-1
         - name: AWS_SDK_LOAD_CONFIG
           value: 'true'
-        # Enable Pod Identity credential provider
         - name: AWS_EC2_METADATA_DISABLED
           value: 'false'
-        # Use Pod Identity through IMDS
         - name: AWS_METADATA_SERVICE_TIMEOUT
           value: '10'
         - name: AWS_METADATA_SERVICE_NUM_ATTEMPTS
           value: '3'
+        - name: DOCKER_CONFIG
+          value: /kaniko/.docker/
+
+      # Security context – safe defaults for Kaniko
       securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ['ALL']
         runAsUser: 0
         runAsGroup: 0
-        allowPrivilegeEscalation: false
         readOnlyRootFilesystem: false
-        capabilities:
-          drop:
-            - ALL
-  restartPolicy: Never
+
+      # Mount workspace and volume for Docker config
+      volumeMounts:
+        - name: workspace-volume
+          mountPath: /home/jenkins/agent
+        - name: docker-config
+          mountPath: /kaniko/.docker/
+
+    - name: jnlp
+      image: jenkins/inbound-agent:latest
+      imagePullPolicy: IfNotPresent
+      resources:
+        requests:
+          memory: '256Mi'
+          cpu: '100m'
+      env:
+        - name: JENKINS_URL
+          value: 'http://ITI-GP-Cluster-jenkins-alb-2030037436.eu-north-1.elb.amazonaws.com'
+      volumeMounts:
+        - name: workspace-volume
+          mountPath: /home/jenkins/agent
+
+  # Shared workspace between containers
+  volumes:
+    - name: workspace-volume
+      emptyDir: {}
+
+    - name: docker-config
+      emptyDir: {}
