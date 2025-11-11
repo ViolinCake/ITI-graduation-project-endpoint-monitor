@@ -7,50 +7,59 @@ metadata:
 spec:
   serviceAccountName: jenkins
   containers:
+    # Jenkins inbound agent (required)
+    - name: jnlp
+      image: jenkins/inbound-agent:latest
+      imagePullPolicy: IfNotPresent
+      args: ['$(JENKINS_SECRET)', '$(JENKINS_NAME)']
+      env:
+        - name: JENKINS_URL
+          value: 'http://ITI-GP-Cluster-jenkins-alb-1026072163.eu-north-1.elb.amazonaws.com'
+      resources:
+        requests:
+          cpu: '100m'
+          memory: '256Mi'
+      volumeMounts:
+        - name: workspace-volume
+          mountPath: /home/jenkins/agent
+
+    # Additional tools
     - name: git
       image: alpine/git:latest
-      command:
-        - sleep
-      args:
-        - 99d
+      command: ['sleep']
+      args: ['99d']
       tty: true
 
     - name: helm
       image: dtzar/helm-kubectl:latest
-      command:
-        - sleep
-      args:
-        - 99d
+      command: ['sleep']
+      args: ['99d']
       tty: true
 
     - name: kaniko
-      image: gcr.io/kaniko-project/executor:debug
-      command:
-        - /busybox/sleep
-      args:
-        - '99999'
+      image: 428346553093.dkr.ecr.eu-north-1.amazonaws.com/kaniko-aws:latest
+      command: ['/busybox/sleep']
+      args: ['99999']
       tty: true
 
     - name: tester
       image: ubuntu
-      command:
-        - sleep
-      args:
-        - 99d
+      command: ['sleep']
+      args: ['99d']
       tty: true
 
     - name: mailer
       image: alpine:latest
-      command:
-        - sleep
-      args:
-        - 99d
+      command: ['sleep']
+      args: ['99d']
       tty: true
 
     - name: argocd-syncer
       image: bstar999/argocd-syncer
-      command:
-        - sleep
-      args:
-        - 99d
+      command: ['sleep']
+      args: ['99d']
       tty: true
+
+  volumes:
+    - name: workspace-volume
+      emptyDir: {}
