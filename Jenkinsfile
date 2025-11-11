@@ -17,7 +17,7 @@ pipeline {
         K8S_NAMESPACE    = 'default'
         APP_NAME         = 'my-app'
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
@@ -31,7 +31,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Build Info') {
             steps {
                 echo "📦 Building image: ${IMAGE_NAME}"
@@ -40,102 +40,61 @@ pipeline {
                 echo "🏗️ Build Number: ${BUILD_NUMBER}"
             }
         }
-        
+
         stage('Debug AWS Credentials in Kaniko') {
             steps {
                 container('kaniko') {
                     script {
                         sh '''
-                            echo "=== Testing AWS CLI in Kaniko ==="
-                            which aws
-                            aws --version
-                            
-                            echo "=== Testing STS ==="
-                            aws sts get-caller-identity
-                            
-                            echo "=== Testing ECR Access ==="
-                            aws ecr describe-repositories --region eu-north-1
-                            
-                            echo "=== Testing ECR Login ==="
-                            aws ecr get-login-password --region eu-north-1 | head -c 50
+                            echo "=== 🧰 Installing AWS CLI inside Kaniko ==="
+                            apk add --no-cache python3 py3-pip groff less curl jq > /dev/null
+                            pip install awscli --quiet
+
+                            echo "=== 🔍 Checking AWS CLI Installation ==="
+                            aws --version || { echo "❌ AWS CLI not found"; exit 1; }
+
+                            echo "=== 🔑 Testing STS Identity ==="
+                            aws sts get-caller-identity || { echo "❌ Failed to get AWS identity"; exit 1; }
+
+                            echo "=== 🧭 Testing ECR Access ==="
+                            aws ecr describe-repositories --region ${AWS_REGION} || echo "⚠️ ECR list access might be limited"
+
+                            echo "=== 🔐 Testing ECR Login ==="
+                            aws ecr get-login-password --region ${AWS_REGION} | head -c 50
                             echo "..."
-                            
-                            echo "=== Testing ECR Push Permissions ==="
-                            aws ecr batch-check-layer-availability \\
-                                --repository-name my-app \\
-                                --layer-digests "sha256:test" \\
-                                --region eu-north-1 || echo "Expected to fail but testing permissions"
                         '''
                     }
                 }
             }
         }
-        
-        stage('Test Manual ECR Auth') {
-            steps {
-                container('kaniko') {
-                    script {
-                        sh '''
-                            echo "=== Testing Manual ECR Authentication ==="
-                            
-                            # Get ECR login token and test Docker login
-                            ECR_PASSWORD=$(aws ecr get-login-password --region eu-north-1)
-                            echo "ECR password retrieved: ${#ECR_PASSWORD} chars"
-                            
-                            # Test that we can authenticate to ECR
-                            echo "$ECR_PASSWORD" | docker login \\
-                                --username AWS \\
-                                --password-stdin \\
-                                428346553093.dkr.ecr.eu-north-1.amazonaws.com
-                        '''
-                    }
-                }
-            }
-        }
-        
+
         stage('Debug IAM in Kaniko Pod') {
             steps {
                 container('kaniko') {
                     script {
                         sh '''
-                            echo "=== Checking IAM Role in Kaniko Container ==="
-                            
-                            # Check environment variables that should be injected by IRSA
+                            echo "=== 🧾 Checking IAM Role in Kaniko Container ==="
                             echo "AWS_ROLE_ARN: ${AWS_ROLE_ARN:-NOT SET ❌}"
                             echo "AWS_WEB_IDENTITY_TOKEN_FILE: ${AWS_WEB_IDENTITY_TOKEN_FILE:-NOT SET ❌}"
                             echo "AWS_REGION: ${AWS_REGION}"
-                            
-                            # Check if service account token exists
+
                             if [ -f "${AWS_WEB_IDENTITY_TOKEN_FILE}" ]; then
                                 echo "✅ Token file exists at: ${AWS_WEB_IDENTITY_TOKEN_FILE}"
-                                echo "Token content (first 50 chars):"
                                 head -c 50 "${AWS_WEB_IDENTITY_TOKEN_FILE}"
                                 echo "..."
                             else
-                                echo "❌ Token file does NOT exist"
-                                echo "Checking /var/run/secrets/eks.amazonaws.com/serviceaccount/"
-                                ls -la /var/run/secrets/eks.amazonaws.com/serviceaccount/ 2>&1 || echo "Directory not found"
+                                echo "❌ Token file missing!"
+                                ls -la /var/run/secrets/eks.amazonaws.com/serviceaccount/ || echo "No serviceaccount token directory"
                             fi
-                            
-                            # Check what credentials Kaniko will use
-                            echo "=== Checking Docker config ==="
+
+                            echo "=== 📄 Docker Config Check ==="
                             cat /kaniko/.docker/config.json 2>/dev/null || echo "No docker config yet"
                         '''
                     }
                 }
             }
         }
-        
-        stage('Prepare Build Context') {
-            steps {
-                script {
-                    echo "📋 Preparing build context for Kaniko..."
-                    echo "✅ Using Jenkins service account with ECR permissions"
-                    echo "IAM Role: ${env.JENKINS_ROLE_ARN ?: 'Using default service account role'}"
-                }
-            }
-        }
-        
+
         stage('Verify Environment') {
             steps {
                 script {
@@ -144,7 +103,7 @@ pipeline {
                     echo "Build Number: ${BUILD_NUMBER}"
                     echo "ECR Registry: ${ECR_REGISTRY}"
                     echo "Image Name: ${IMAGE_NAME}"
-                    
+
                     sh '''
                         echo "Checking workspace structure:"
                         ls -la ${WORKSPACE}
@@ -156,14 +115,14 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Build & Push with Kaniko') {
             steps {
                 container('kaniko') {
                     script {
                         echo "🚀 Building and pushing image with Kaniko..."
-                        echo "📋 Using service account IAM role for ECR authentication"
-                        
+                        echo "📋 Using IAM Role for ECR authentication"
+
                         sh '''
                             echo "Environment variables:"
                             echo "AWS_REGION: ${AWS_REGION}"
@@ -171,17 +130,15 @@ pipeline {
                             echo "ECR_REGISTRY: ${ECR_REGISTRY}"
                             echo "IMAGE_NAME: ${IMAGE_NAME}"
                             echo "IMAGE_LATEST: ${IMAGE_LATEST}"
-                            
-                            echo "Build context check:"
-                            ls -la ${WORKSPACE}/node_app
-                            
-                            echo "🏗️ Starting Kaniko build with IAM role authentication..."
-                            /kaniko/executor \\
-                              --context ${WORKSPACE}/node_app \\
-                              --dockerfile ${WORKSPACE}/node_app/Dockerfile \\
-                              --destination ${IMAGE_NAME} \\
-                              --destination ${IMAGE_LATEST} \\
-                              --verbosity=info \\
+
+                            echo "🏗️ Starting Kaniko build..."
+                            /kaniko/executor \
+                              --context ${WORKSPACE}/node_app \
+                              --dockerfile ${WORKSPACE}/node_app/Dockerfile \
+                              --destination ${IMAGE_NAME} \
+                              --destination ${IMAGE_LATEST} \
+                              --aws-region ${AWS_REGION} \
+                              --verbosity=info \
                               --force
                         '''
                     }
@@ -189,7 +146,7 @@ pipeline {
             }
         }
     }
-    
+
     post {
         success {
             echo '✅ ====================================='
@@ -199,16 +156,23 @@ pipeline {
             echo "☁️ ECR: ${ECR_REGISTRY}/${ECR_REPOSITORY}"
             echo "🚀 Deployed to EKS: ${EKS_CLUSTER_NAME}"
         }
-        
+
         failure {
             echo '❌ ====================================='
             echo '❌ Pipeline failed!'
             echo '❌ ====================================='
         }
-        
+
         always {
             echo '🧹 Cleaning up workspace...'
-            cleanWs()
+            script {
+                try {
+                    cleanWs()
+                } catch (Exception e) {
+                    echo "⚠️ cleanWs() not available — using deleteDir()"
+                    deleteDir()
+                }
+            }
         }
     }
 }
