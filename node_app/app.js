@@ -31,8 +31,10 @@ app.use(
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:', 'https:'],
         connectSrc: ["'self'"],
+        upgradeInsecureRequests: null, // Disable automatic HTTPS upgrade
       },
     },
+    hsts: false, // Disable HSTS to allow HTTP access
   })
 );
 
