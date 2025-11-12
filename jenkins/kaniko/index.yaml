@@ -14,7 +14,7 @@ spec:
       args: ['$(JENKINS_SECRET)', '$(JENKINS_NAME)']
       env:
         - name: JENKINS_URL
-          value: 'http://ITI-GP-Cluster-jenkins-alb-1202096424.eu-north-1.elb.amazonaws.com'
+          value: 'http://iti-gp-cluster-apps-alb-1990196815.eu-north-1.elb.amazonaws.com/'
       resources:
         requests:
           cpu: '100m'
