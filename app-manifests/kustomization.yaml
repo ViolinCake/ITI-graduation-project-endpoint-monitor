@@ -8,3 +8,6 @@ resources:
   - node-app/config.yaml
   - mysql/config.yaml
   - redis/config.yaml
+  - node-app/secret.yaml
+  - mysql/secret.yaml
+  - redis/secret.yaml
