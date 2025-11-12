@@ -27,8 +27,8 @@ pipeline {
         IMAGE_LATEST     = "${ECR_REGISTRY}/${ECR_REPOSITORY}:latest"
         
         // Build Configuration
-        DOCKERFILE_PATH  = 'node_app/Dockerfile'
-        BUILD_CONTEXT    = 'node_app'
+        DOCKERFILE_PATH  = '../node_app/Dockerfile'
+        BUILD_CONTEXT    = '../node_app'
     }
     
     stages {
