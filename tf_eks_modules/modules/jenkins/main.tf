@@ -118,6 +118,14 @@ resource "aws_security_group" "jenkins_alb" {
   }
 
   ingress {
+    description = "Argo CD HTTP from anywhere"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
     description = "HTTPS from anywhere"
     from_port   = 443
     to_port     = 443
@@ -162,6 +170,22 @@ resource "aws_security_group" "jenkins_nodeport" {
     cidr_blocks = [var.vpc_cidr]
   }
 
+  ingress {
+    description     = "Argo CD HTTP NodePort from ALB"
+    from_port       = 30081
+    to_port         = 30081
+    protocol        = "tcp"
+    security_groups = [aws_security_group.jenkins_alb.id]
+  }
+
+  ingress {
+    description     = "Argo CD HTTPS NodePort from ALB"
+    from_port       = 30443
+    to_port         = 30443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.jenkins_alb.id]
+  }
+
   tags = {
     Name = "${var.cluster_name}-jenkins-nodeport-sg"
   }
@@ -171,9 +195,9 @@ resource "aws_security_group" "jenkins_nodeport" {
   }
 }
 
-# Application Load Balancer for Jenkins
+# Application Load Balancer for Jenkins and Argo CD
 resource "aws_lb" "jenkins" {
-  name               = "${var.cluster_name}-jenkins-alb"
+  name               = "${var.cluster_name}-apps-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.jenkins_alb.id]
@@ -182,7 +206,7 @@ resource "aws_lb" "jenkins" {
   enable_deletion_protection = false
 
   tags = {
-    Name = "${var.cluster_name}-jenkins-alb"
+    Name = "${var.cluster_name}-apps-alb"
   }
 }
 
@@ -208,6 +232,31 @@ resource "aws_lb_target_group" "jenkins_web" {
 
   tags = {
     Name = "${var.cluster_name}-jenkins-web-tg"
+  }
+}
+
+# Target Group for Argo CD (NodePort)
+resource "aws_lb_target_group" "argocd" {
+  name        = "${var.cluster_name}-argocd"
+  port        = 30443
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
+  target_type = "instance"
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    interval            = 30
+    matcher             = "200,307"
+    path                = "/healthz"
+    port                = "30443"
+    protocol            = "HTTP"
+    timeout             = 5
+    unhealthy_threshold = 3
+  }
+
+  tags = {
+    Name = "${var.cluster_name}-argocd-tg"
   }
 }
 
@@ -248,7 +297,7 @@ resource "aws_lb_target_group" "jenkins_agent" {
   }
 }
 
-# Listener for Jenkins Web UI (HTTP)
+# Listener for Jenkins and Argo CD (HTTP with path-based routing)
 resource "aws_lb_listener" "jenkins_web_http" {
   load_balancer_arn = aws_lb.jenkins.arn
   port              = "80"
@@ -257,6 +306,18 @@ resource "aws_lb_listener" "jenkins_web_http" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.jenkins_web.arn
+  }
+}
+
+# Listener for Argo CD on port 8080
+resource "aws_lb_listener" "argocd_http" {
+  load_balancer_arn = aws_lb.jenkins.arn
+  port              = "8080"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.argocd.arn
   }
 }
 
@@ -281,6 +342,12 @@ data "aws_autoscaling_group" "eks_nodes" {
 resource "aws_autoscaling_attachment" "jenkins_web" {
   autoscaling_group_name = data.aws_autoscaling_group.eks_nodes.name
   lb_target_group_arn    = aws_lb_target_group.jenkins_web.arn
+}
+
+# Auto Scaling Group attachment for Argo CD target group
+resource "aws_autoscaling_attachment" "argocd" {
+  autoscaling_group_name = data.aws_autoscaling_group.eks_nodes.name
+  lb_target_group_arn    = aws_lb_target_group.argocd.arn
 }
 
 # Auto Scaling Group attachment for Jenkins Agent target group
@@ -308,6 +375,27 @@ resource "aws_security_group_rule" "jenkins_agent_nodeport" {
   cidr_blocks       = [var.vpc_cidr]
   security_group_id = var.eks_cluster_security_group_id
   description       = "Allow internal NLB to access Jenkins Agent NodePort"
+}
+
+# Security group rules for Argo CD NodePort access
+resource "aws_security_group_rule" "argocd_http_nodeport" {
+  type                     = "ingress"
+  from_port                = 30081
+  to_port                  = 30081
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.jenkins_alb.id
+  security_group_id        = var.eks_cluster_security_group_id
+  description              = "Allow ALB to access Argo CD HTTP NodePort"
+}
+
+resource "aws_security_group_rule" "argocd_https_nodeport" {
+  type                     = "ingress"
+  from_port                = 30443
+  to_port                  = 30443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.jenkins_alb.id
+  security_group_id        = var.eks_cluster_security_group_id
+  description              = "Allow ALB to access Argo CD HTTPS NodePort"
 }
 
 # Automatically update Kaniko YAML with Jenkins URL

@@ -81,6 +81,18 @@ fi
 log "helm installed at $(which helm) ($(helm version --short 2>/dev/null || echo 'version unknown'))"
 
 # -------------------------
+# Install Argo CD CLI
+# -------------------------
+log "Installing Argo CD CLI..."
+if ! command -v argocd >/dev/null 2>&1; then
+  for i in 1 2 3; do
+    curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64 && break || log "Retry argocd CLI download ($i)"; sleep 5
+  done
+  chmod +x /usr/local/bin/argocd
+fi
+log "argocd CLI installed at $(which argocd) ($(argocd version --client 2>/dev/null | head -1 || echo 'version unknown'))"
+
+# -------------------------
 # Prepare ec2-user home & kube config location
 # -------------------------
 log "Preparing ec2-user home and kubeconfig..."
@@ -201,6 +213,12 @@ alias kga='kubectl get all'
 alias h='helm'
 alias hls='helm list'
 alias hla='helm list --all-namespaces'
+
+# Argo CD aliases
+alias argocd='argocd'
+alias acdapp='argocd app list'
+alias acdget='argocd app get'
+alias acdsync='argocd app sync'
 
 # AWS region
 export AWS_DEFAULT_REGION=$${AWS_REGION}
@@ -380,6 +398,77 @@ EOF
     log "❌ Reached maximum Jenkins install attempts ($max_jenkins_attempts)."
   fi
   jenkins_attempt=$((jenkins_attempt+1))
+done
+
+# -------------------------
+# Install Argo CD
+# -------------------------
+log "Installing Argo CD..."
+
+# Create argocd namespace
+runuser -l ec2-user -c "kubectl create namespace argocd" >/dev/null 2>&1 || log "argocd namespace exists or could not be created"
+
+# Install Argo CD using official manifests
+max_argocd_attempts=10
+argocd_attempt=1
+while [ $argocd_attempt -le $max_argocd_attempts ]; do
+  log "Argo CD install attempt $argocd_attempt/$max_argocd_attempts"
+  
+  if runuser -l ec2-user -c "kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml" >>/var/log/argocd-install.log 2>&1; then
+    log "✅ Argo CD manifests applied"
+    
+    # Wait for Argo CD server to be ready
+    log "Waiting for Argo CD server pod to be Ready (timeout 600s)..."
+    if runuser -l ec2-user -c "kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=600s" >>"$LOG_FILE" 2>&1; then
+      log "✅ Argo CD server pod Ready"
+      
+      # Patch argocd-server service to use NodePort
+      log "Patching Argo CD server service to NodePort..."
+      runuser -l ec2-user -c "kubectl patch svc argocd-server -n argocd -p '{\"spec\":{\"type\":\"NodePort\",\"ports\":[{\"name\":\"http\",\"port\":80,\"targetPort\":8080,\"nodePort\":30081},{\"name\":\"https\",\"port\":443,\"targetPort\":8080,\"nodePort\":30443}]}}'" >>/var/log/argocd-install.log 2>&1 || log "⚠️ Failed to patch argocd-server service"
+      
+      # Get initial admin password
+      log "Fetching Argo CD initial admin password..."
+      sleep 10
+      ARGOCD_PW=$(runuser -l ec2-user -c "kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' 2>/dev/null || true" | base64 --decode 2>/dev/null || true)
+      
+      if [ -n "$ARGOCD_PW" ]; then
+        log "Storing Argo CD admin password into AWS Secrets Manager as 'argocd-admin-password'..."
+        if aws secretsmanager create-secret --name "argocd-admin-password" --secret-string "$ARGOCD_PW" --region "$${AWS_REGION}" >/dev/null 2>&1; then
+          log "✅ Argo CD secret created"
+        else
+          if aws secretsmanager put-secret-value --secret-id "argocd-admin-password" --secret-string "$ARGOCD_PW" --region "$${AWS_REGION}" >/dev/null 2>&1; then
+            log "✅ Argo CD secret updated"
+          else
+            log "⚠️ Failed to store Argo CD secret in Secrets Manager"
+          fi
+        fi
+        
+        # Save password to file
+        echo "$ARGOCD_PW" > /home/ec2-user/argocd-password.txt
+        chown ec2-user:ec2-user /home/ec2-user/argocd-password.txt
+        chmod 600 /home/ec2-user/argocd-password.txt
+        log "✅ Argo CD admin password saved to /home/ec2-user/argocd-password.txt"
+        log "✅ Argo CD username: admin"
+      else
+        log "⚠️ Could not fetch Argo CD admin password yet"
+      fi
+      
+      log "✅ Argo CD installation completed"
+      break
+    else
+      log "⚠️ Argo CD server pod did not become Ready within timeout"
+    fi
+  else
+    log "❌ Argo CD manifest apply failed (check /var/log/argocd-install.log)"
+  fi
+  
+  if [ $argocd_attempt -lt $max_argocd_attempts ]; then
+    log "Waiting 60s before next Argo CD attempt..."
+    sleep 60
+  else
+    log "❌ Reached maximum Argo CD install attempts ($max_argocd_attempts)."
+  fi
+  argocd_attempt=$((argocd_attempt+1))
 done
 
 log "Bastion Setup Complete"
