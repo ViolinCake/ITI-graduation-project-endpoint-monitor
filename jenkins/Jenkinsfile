@@ -21,9 +21,9 @@ pipeline {
         // Application Configuration
         APP_NAME         = 'my-app'
         
-        // Image Tags
-        IMAGE_TAG        = "${BUILD_NUMBER}"
-        IMAGE_NAME       = "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+        // Image Tags - will be set dynamically in the pipeline
+        IMAGE_TAG        = ''
+        IMAGE_NAME       = ''
         IMAGE_LATEST     = "${ECR_REGISTRY}/${ECR_REPOSITORY}:latest"
         
         // Build Configuration
@@ -52,9 +52,27 @@ pipeline {
                         returnStdout: true
                     ).trim()
                     
+                    // Get git branch name
+                    env.GIT_BRANCH = sh(
+                        script: "git rev-parse --abbrev-ref HEAD",
+                        returnStdout: true
+                    ).trim()
+                    
+                    // Create unique image tag: build-<BUILD_NUMBER>-<GIT_COMMIT>-<TIMESTAMP>
+                    def timestamp = sh(
+                        script: "date +%Y%m%d-%H%M%S",
+                        returnStdout: true
+                    ).trim()
+                    
+                    // Format: v1.0.0-b123-a1b2c3d-20251112-165430
+                    env.IMAGE_TAG = "v1.0.0-b${BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}-${timestamp}"
+                    env.IMAGE_NAME = "${ECR_REGISTRY}/${ECR_REPOSITORY}:${env.IMAGE_TAG}"
+                    
                     echo "✅ Repository checked out successfully"
                     echo "📝 Commit: ${env.GIT_COMMIT_SHORT}"
+                    echo "🌿 Branch: ${env.GIT_BRANCH}"
                     echo "💬 Message: ${env.GIT_COMMIT_MSG}"
+                    echo "🏷️  Image Tag: ${env.IMAGE_TAG}"
                 }
             }
         }
@@ -63,14 +81,14 @@ pipeline {
             steps {
                 script {
                     echo '═══════════════════════════════════════════════════════'
-                    echo '� STAGE 2: Build Information'
+                    echo '📊 STAGE 2: Build Information'
                     echo '═══════════════════════════════════════════════════════'
                     echo "🏷️  Build Number: ${BUILD_NUMBER}"
-                    echo "🌿 Git Branch: ${env.GIT_BRANCH ?: 'N/A'}"
+                    echo "🌿 Git Branch: ${env.GIT_BRANCH}"
                     echo "📝 Git Commit: ${env.GIT_COMMIT_SHORT}"
                     echo "💬 Commit Message: ${env.GIT_COMMIT_MSG}"
-                    echo "📦 Image Tag: ${IMAGE_TAG}"
-                    echo "🐳 Image Name: ${IMAGE_NAME}"
+                    echo "📦 Image Tag: ${env.IMAGE_TAG}"
+                    echo "🐳 Image Name: ${env.IMAGE_NAME}"
                     echo "☁️  ECR Registry: ${ECR_REGISTRY}"
                     echo "🎯 EKS Cluster: ${EKS_CLUSTER_NAME}"
                     echo '═══════════════════════════════════════════════════════'
@@ -164,7 +182,9 @@ pipeline {
                             
                             echo "🔍 Pre-build verification"
                             echo "AWS_REGION: ${AWS_REGION}"
+                            echo "IMAGE_TAG: ${IMAGE_TAG}"
                             echo "IMAGE_NAME: ${IMAGE_NAME}"
+                            echo "IMAGE_LATEST: ${IMAGE_LATEST}"
                             echo "BUILD_CONTEXT: ${WORKSPACE}/${BUILD_CONTEXT}"
                             echo ""
                             
@@ -182,6 +202,9 @@ pipeline {
                             --force
                             
                             echo "✅ Build and push completed successfully!"
+                            echo "📦 Tagged images:"
+                            echo "   • ${IMAGE_NAME}"
+                            echo "   • ${IMAGE_LATEST}"
                         '''
                     }
                 }
@@ -210,8 +233,9 @@ pipeline {
                 echo ""
                 echo "📊 Build Details:"
                 echo "   • Build Number: ${BUILD_NUMBER}"
+                echo "   • Image Tag: ${env.IMAGE_TAG}"
                 echo "   • Git Commit: ${env.GIT_COMMIT_SHORT}"
-                echo "   • Branch: ${env.GIT_BRANCH ?: 'N/A'}"
+                echo "   • Branch: ${env.GIT_BRANCH}"
                 echo '═══════════════════════════════════════════════════════'
             }
         }
@@ -225,8 +249,9 @@ pipeline {
                 echo ""
                 echo "📊 Build Information:"
                 echo "   • Build Number: ${BUILD_NUMBER}"
+                echo "   • Image Tag: ${env.IMAGE_TAG}"
                 echo "   • Git Commit: ${env.GIT_COMMIT_SHORT}"
-                echo "   • Branch: ${env.GIT_BRANCH ?: 'N/A'}"
+                echo "   • Branch: ${env.GIT_BRANCH}"
                 echo ""
                 echo "💡 Troubleshooting Steps:"
                 echo "   1. Check the build logs above for errors"
