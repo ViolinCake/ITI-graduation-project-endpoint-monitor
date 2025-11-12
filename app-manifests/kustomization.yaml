@@ -6,5 +6,5 @@ resources:
   - redis/deployment.yaml
   - redis/service.yaml
   - node-app/config.yaml
-  - my-app/config.yaml
+  - mysql/config.yaml
   - redis/config.yaml
