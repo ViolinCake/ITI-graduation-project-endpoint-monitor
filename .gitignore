@@ -88,4 +88,3 @@ github_token
 # Ansible vault files
 vault.yml
 vault_pass.txt
-modules
