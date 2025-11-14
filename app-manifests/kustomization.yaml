@@ -12,5 +12,6 @@ resources:
   - mysql/secret.yaml
   - redis/secret.yaml
 images:
-  - name: 822233328858.dkr.ecr.eu-north-1.amazonaws.com/my-app:v2
+  - name: 822233328858.dkr.ecr.eu-north-1.amazonaws.com/my-app
+    newTag: v2
 
