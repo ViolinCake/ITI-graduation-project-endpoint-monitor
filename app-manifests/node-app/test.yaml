@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-health-app
+  labels:
+    app: api-health-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-health-app
+  template:
+    metadata:
+      labels:
+        app: api-health-app
+    spec:
+      containers:
+        - name: api-health-app
+          image: 822233328858.dkr.ecr.eu-north-1.amazonaws.com/my-app:v2
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: api-health-config
+            - secretRef:
+                name: api-health-secret
