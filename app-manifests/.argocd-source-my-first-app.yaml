@@ -1,0 +1,3 @@
+kustomize:
+  images:
+  - 822233328858.dkr.ecr.eu-north-1.amazonaws.com/my-app:v4
