@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: api-health-app
-          image: 822233328858.dkr.ecr.eu-north-1.amazonaws.com/my-app:latest
+          image: 428346553093.dkr.ecr.eu-north-1.amazonaws.com/my-app:latest
           ports:
             - containerPort: 3000
           envFrom:
