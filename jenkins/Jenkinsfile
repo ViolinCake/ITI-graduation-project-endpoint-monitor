@@ -22,7 +22,7 @@ pipeline {
         APP_NAME         = 'my-app'
         
         // Image Tags
-        IMAGE_TAG = "v${BUILD_NUMBER}.0.0"
+        IMAGE_TAG        = "v${BUILD_NUMBER}.0.0"
         IMAGE_NAME       = "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
         IMAGE_LATEST     = "${ECR_REGISTRY}/${ECR_REPOSITORY}:latest"
         
