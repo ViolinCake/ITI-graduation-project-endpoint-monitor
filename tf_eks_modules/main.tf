@@ -112,6 +112,7 @@ module "bastion" {
 module "imageUpdater" {
   source = "./modules/image_updater"
   cluster_name = var.cluster_name
+  depends_on = [ module.eks ]
 }
 
 # # 🗄️ RDS

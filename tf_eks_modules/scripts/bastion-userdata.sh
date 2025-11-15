@@ -484,15 +484,120 @@ done
 # -------------------------
 log "Installing Argo CD Image Updater..."
 
-runuser -l ec2-user -c "helm repo add argo https://argoproj.github.io/argo-helm"
-runuser -l ec2-user -c "helm repo update"
+# Add Argo Helm repository
+runuser -l ec2-user -c "helm repo add argo https://argoproj.github.io/argo-helm" >>/var/log/argocd-image-updater.log 2>&1 || log "⚠️ Argo helm repo may already exist"
+runuser -l ec2-user -c "helm repo update" >>/var/log/argocd-image-updater.log 2>&1 || log "⚠️ Failed to update helm repos"
 
+# Create image-updater configuration file
+log "Creating Argo CD Image Updater configuration..."
 cat <<'EOFCONFIG' >/home/ec2-user/image-updater.yaml
 ${image_updater_config}
 EOFCONFIG
 
-# Install ArgoCD Image Updater
-runuser -l ec2-user -c "helm install argocd-image-updater argo/argocd-image-updater -n argocd -f /home/ec2-user/image-updater.yaml --version 0.11.0"
+chown ec2-user:ec2-user /home/ec2-user/image-updater.yaml
 
+# Install Argo CD Image Updater with retry logic
+max_image_updater_attempts=10
+image_updater_attempt=1
+while [ $image_updater_attempt -le $max_image_updater_attempts ]; do
+  log "Argo CD Image Updater install attempt $image_updater_attempt/$max_image_updater_attempts"
+  
+  if runuser -l ec2-user -c "kubectl get nodes" >/dev/null 2>&1; then
+    # Ensure argocd namespace exists
+    runuser -l ec2-user -c "kubectl create namespace argocd" >/dev/null 2>&1 || log "argocd namespace exists or could not be created"
+    
+    # Install or upgrade Argo CD Image Updater
+    if runuser -l ec2-user -c "helm upgrade --install argocd-image-updater argo/argocd-image-updater -n argocd -f /home/ec2-user/image-updater.yaml --version 0.11.0 --wait --timeout 300s" >>/var/log/argocd-image-updater.log 2>&1; then
+      log "✅ Argo CD Image Updater Helm release installed/upgraded"
+      
+      # Wait for Image Updater pod to be ready
+      log "Waiting for Argo CD Image Updater pod to be Ready (timeout 300s)..."
+      if runuser -l ec2-user -c "kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=argocd-image-updater -n argocd --timeout=300s" >>"$LOG_FILE" 2>&1; then
+        log "✅ Argo CD Image Updater pod Ready"
+        
+        # Verify the deployment
+        log "Verifying Argo CD Image Updater deployment..."
+        if runuser -l ec2-user -c "kubectl get deployment argocd-image-updater -n argocd" >>/var/log/argocd-image-updater.log 2>&1; then
+          log "✅ Argo CD Image Updater deployment verified"
+        else
+          log "⚠️ Could not verify Argo CD Image Updater deployment"
+        fi
+        
+        # Check Image Updater logs
+        log "Checking Argo CD Image Updater logs..."
+        runuser -l ec2-user -c "kubectl logs -n argocd -l app.kubernetes.io/name=argocd-image-updater --tail=20" >>/var/log/argocd-image-updater.log 2>&1 || log "⚠️ Could not fetch Image Updater logs"
+        
+        log "✅ Argo CD Image Updater installation completed successfully"
+        
+        # Try to get GitHub PAT from AWS Secrets Manager
+        GITHUB_PAT=$(aws secretsmanager get-secret-value --secret-id "Argo_CD_updater_github_token" --region "$${AWS_REGION}" --query SecretString --output text 2>/dev/null || echo "")
+        
+        if [ -n "$GITHUB_PAT" ]; then
+          log "✅ Found GitHub PAT in Secrets Manager, creating git-creds secret..."
+          runuser -l ec2-user -c "kubectl create secret generic git-creds -n argocd --from-literal=username=ahmed22362 --from-literal=password='$GITHUB_PAT' --dry-run=client -o yaml | kubectl apply -f -" >>/var/log/argocd-image-updater.log 2>&1
+          if [ $? -eq 0 ]; then
+            log "✅ Git credentials secret created successfully"
+          else
+            log "⚠️ Failed to create git-creds secret"
+          fi
+        else
+          log "⚠️ GitHub PAT not found in Secrets Manager (secret: Argo_CD_updater_github_token)"
+          log "⚠️ Image Updater will not be able to push changes to Git"
+          log "   Create the secret manually: kubectl create secret generic git-creds -n argocd --from-literal=username=ahmed22362 --from-literal=password=YOUR_GITHUB_PAT"
+        fi
+        
+        # Apply Argo CD Application after Image Updater is ready
+        log "Deploying Argo CD Application for api-health-app..."
+        cat <<'APPEOF' >/home/ec2-user/argocd-application.yaml
+${argocd_application_config}
+APPEOF
+        
+        chown ec2-user:ec2-user /home/ec2-user/argocd-application.yaml
+        
+        # Apply the application
+        if runuser -l ec2-user -c "kubectl apply -f /home/ec2-user/argocd-application.yaml" >>/var/log/argocd-image-updater.log 2>&1; then
+          log "✅ Argo CD Application created successfully"
+          
+          # Wait for initial sync
+          log "Waiting for initial application sync (this may take a few minutes)..."
+          sleep 30
+          
+          # Check application status
+          if runuser -l ec2-user -c "kubectl get application api-health-app -n argocd" >>/var/log/argocd-image-updater.log 2>&1; then
+            log "✅ Application status verified"
+            runuser -l ec2-user -c "kubectl get application api-health-app -n argocd -o yaml" >>/var/log/argocd-image-updater.log 2>&1 || true
+          else
+            log "⚠️ Could not verify application status"
+          fi
+        else
+          log "⚠️ Failed to create Argo CD Application (check /var/log/argocd-image-updater.log)"
+        fi
+        
+        break
+      else
+        log "⚠️ Argo CD Image Updater pod did not become Ready within timeout"
+      fi
+    else
+      log "❌ Argo CD Image Updater Helm install/upgrade failed (check /var/log/argocd-image-updater.log)"
+    fi
+  else
+    log "kubectl not ready; skipping Image Updater install this attempt"
+  fi
+  
+  if [ $image_updater_attempt -lt $max_image_updater_attempts ]; then
+    log "Waiting 60s before next Argo CD Image Updater attempt..."
+    sleep 60
+  else
+    log "❌ Reached maximum Argo CD Image Updater install attempts ($max_image_updater_attempts)."
+  fi
+  image_updater_attempt=$((image_updater_attempt+1))
+done
 
-log "Bastion Setup Complete"
+log "✅ Bastion Setup Complete"
+log "================================================"
+log "Installation Summary:"
+log "  • Jenkins: Check /var/log/helm-jenkins.log"
+log "  • Argo CD: Check /var/log/argocd-install.log"
+log "  • Argo CD Image Updater: Check /var/log/argocd-image-updater.log"
+log "  • Credentials saved in /home/ec2-user/"
+log "================================================"

@@ -144,7 +144,8 @@ resource "aws_instance" "bastion" {
       cluster_name              = var.cluster_name
       jenkins_role_arn          = var.jenkins_role_arn
       jenkins_admin_secret_name = "JenkinsAdminPassword"
-      image_updater_config = file("${path.root}/modules/image_updater/image-updater.yaml")
+      image_updater_config      = file("${path.root}/modules/image_updater/image-updater.yaml")
+      argocd_application_config = file("${path.root}/modules/image_updater/application.yaml")
     })
   )
 

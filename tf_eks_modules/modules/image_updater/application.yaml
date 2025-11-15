@@ -1,26 +1,28 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: my-first-app
+  name: api-health-app
   namespace: argocd
   annotations:
-    argocd-image-updater.argoproj.io/image-list: myapp=822233328858.dkr.ecr.eu-north-1.amazonaws.com/my-app
-    argocd-image-updater.argoproj.io/myapp.update-strategy: semver
-    argocd-image-updater.argoproj.io/git-ssh-key-secret: repo-github-creds
-    argocd-image-updater.argoproj.io/write-back-method: git
+    argocd-image-updater.argoproj.io/image-list: myapp=428346553093.dkr.ecr.eu-north-1.amazonaws.com/my-app
+    argocd-image-updater.argoproj.io/myapp.update-strategy: latest
+    argocd-image-updater.argoproj.io/myapp.allow-tags: regexp:^v1\.0\.0-b[0-9]+-[a-f0-9]+-[0-9]+-[0-9]+$
+    argocd-image-updater.argoproj.io/write-back-method: git:secret:argocd/git-creds
+    argocd-image-updater.argoproj.io/git-branch: main
   finalizers:
-  - resources-finalizer.argocd.argoproj.io
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
-    repoURL: git@github.com:ViolinCake/k8s.git
+    repoURL: https://github.com/ahmed22362/ITI-graduation-project-endpoint-monitor.git
     targetRevision: main
-    kustomize: {}
-    path: . # the dir within your repo that contains Kubernetes manifests
+    path: app-manifests
   destination:
     server: https://kubernetes.default.svc
-    namespace: my-app-namespace
+    namespace: default
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -468,16 +468,4 @@ resource "aws_security_group_rule" "node_app_nodeport" {
   description              = "Allow ALB to access Node.js App NodePort"
 }
 
-# Automatically update Kaniko YAML with Jenkins URL
-resource "null_resource" "update_kaniko_yaml" {
-  triggers = {
-    jenkins_url = aws_lb.jenkins.dns_name
-  }
 
-  provisioner "local-exec" {
-    command = "bash ${path.root}/../kaniko/update-jenkins-url.sh"
-    #command = "bash ${path.root}/../jenkins/kaniko/update-jenkins-url.sh ${path.root}"
-  }
-
-  depends_on = [aws_lb.jenkins]
-}
