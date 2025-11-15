@@ -1,3 +1,29 @@
+# set -e
+
+# # $1 is now the absolute path to the tf_eks_modules directory, passed by Terraform.
+# # This variable is now reliable.
+# TF_DIR="$1" 
+
+# # Get the directory where this script is located (only needed for index.yaml path)
+# SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# KANIKO_YAML="${SCRIPT_DIR}/index.yaml"
+
+# echo "🔍 Getting Jenkins ALB DNS from Terraform..."
+
+# # Check if terraform directory exists (now using the reliable $TF_DIR)
+# if [ ! -d "$TF_DIR" ]; then
+#     echo "❌ Error: Terraform directory not found at $TF_DIR"
+#     exit 1
+# fi
+
+# # Get Jenkins ALB DNS from Terraform output
+# # We must cd into the directory containing the .terraform folder for 'terraform output' to work correctly.
+# cd "$TF_DIR"
+# JENKINS_DNS=$(terraform output -json 2>/dev/null | jq -r '.jenkins_alb_dns.value // empty')
+
+# if [ -z "$JENKINS_DNS" ]; then
+
+
 #!/bin/bash
 set -e
 
@@ -19,6 +45,7 @@ cd "$TF_DIR"
 JENKINS_DNS=$(terraform output -json 2>/dev/null | jq -r '.jenkins_alb_dns.value // empty')
 
 if [ -z "$JENKINS_DNS" ]; then
+# ... (rest of the script is correct)
     echo "❌ Error: Could not get jenkins_alb_dns from Terraform output"
     echo "Run 'terraform apply' first to create the infrastructure"
     exit 1

@@ -479,4 +479,20 @@ while [ $argocd_attempt -le $max_argocd_attempts ]; do
   argocd_attempt=$((argocd_attempt+1))
 done
 
+# -------------------------
+# Install Argo CD Image Updater
+# -------------------------
+log "Installing Argo CD Image Updater..."
+
+runuser -l ec2-user -c "helm repo add argo https://argoproj.github.io/argo-helm"
+runuser -l ec2-user -c "helm repo update"
+
+cat <<'EOFCONFIG' >/home/ec2-user/image-updater.yaml
+${image_updater_config}
+EOFCONFIG
+
+# Install ArgoCD Image Updater
+runuser -l ec2-user -c "helm install argocd-image-updater argo/argocd-image-updater -n argocd -f /home/ec2-user/image-updater.yaml --version 0.11.0"
+
+
 log "Bastion Setup Complete"

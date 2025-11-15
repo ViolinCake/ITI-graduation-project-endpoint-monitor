@@ -476,6 +476,7 @@ resource "null_resource" "update_kaniko_yaml" {
 
   provisioner "local-exec" {
     command = "bash ${path.root}/../kaniko/update-jenkins-url.sh"
+    #command = "bash ${path.root}/../jenkins/kaniko/update-jenkins-url.sh ${path.root}"
   }
 
   depends_on = [aws_lb.jenkins]

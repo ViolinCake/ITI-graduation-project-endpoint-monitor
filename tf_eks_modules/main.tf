@@ -108,3 +108,32 @@ module "bastion" {
 
   depends_on = [module.eks, module.jenkins]
 }
+
+module "imageUpdater" {
+  source = "./modules/image_updater"
+  cluster_name = var.cluster_name
+}
+
+# # 🗄️ RDS
+# module "rds" {
+#   source = "../rds"
+
+#   vpc_id            = module.network.vpc-id
+#   db_name           = "api_health_db"
+#   db_username       = var.db_username
+#   db_password       = var.db_password
+#   private_subnet_ids = [module.network.private-subnet-1-id, module.network.private-subnet-2-id]
+#   eks_node_sg_id    = module.node_groupe.eks_node_sg_id
+#   project_name      = var.project_name
+# }
+
+
+# # 🔐 Secrets Manager
+# module "secret_manager" {
+#   source       = "../secretManager"
+#   db_name      = module.rds.db_name
+#   project_name = var.project_name
+#   db_username  = module.rds.db_username
+#   db_password  = module.rds.db_password
+#   rds_endpoint = module.rds.db_endpoint
+# }

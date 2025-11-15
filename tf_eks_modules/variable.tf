@@ -4,7 +4,7 @@ variable "aws_region" {
   description = "AWS region where resources will be created"
 }
 variable "aws_profile" {
-  default     = "terraform"
+  default     = "default"
   type        = string
   description = "AWS CLI profile to use for authentication"
 }
@@ -86,3 +86,32 @@ variable "eks_fargate_name" {
   default     = "eks_fargate_profile"
   description = "Name of the EKS Fargate profile"
 }
+# variable "project_name" {
+#   description = "Project name used for tagging resources"
+#   type        = string
+#   default     = "demo-project"
+# }
+
+# variable "db_name" {
+#   description = "Database name for RDS"
+#   type        = string
+#   default = "DB_NAME"
+# }
+
+# variable "db_username" {
+#   description = "Master username for RDS"
+#   type        = string
+#   default = "DB_USER"
+# }
+
+# variable "db_password" {
+#   description = "Master password for RDS"
+#   type        = string
+#   sensitive   = true
+# }
+
+# variable "secret_name" {
+#   description = "Name for the AWS Secret Manager secret"
+#   type        = string
+#   default = "secrets"
+# }
