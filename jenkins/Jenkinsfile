@@ -8,7 +8,7 @@ pipeline {
     environment {
         // AWS Configuration
         AWS_REGION       = 'eu-north-1'
-        AWS_ACCOUNT_ID   = '822233328858'
+        AWS_ACCOUNT_ID   = '428346553093'
         
         // ECR Configuration
         ECR_REPOSITORY   = 'my-app'
