@@ -4,3 +4,4 @@ sudo cat /var/log/sc-apply.log -----That file contains the full stderr/stdout fr
 cat /home/ec2-user/jenkins-password.txt
 update to trigger jenkins23
 helm get values jenkins -n jenkins
+kubectl -n argocd logs -l app.kubernetes.io/name=argocd-image-updater -f

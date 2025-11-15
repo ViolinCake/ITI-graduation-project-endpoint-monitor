@@ -1,18 +1,47 @@
 serviceAccount:
   name: argocd-image-updater
+  create: true
 
+# Install AWS CLI in an init container
+extraVolumes:
+  - name: aws-cli
+    emptyDir: {}
+
+initContainers:
+  - name: install-aws-cli
+    image: amazon/aws-cli:latest
+    command:
+      - sh
+      - -c
+      - |
+        cp /usr/local/aws-cli/v2/current/bin/aws /tmp/aws-cli/
+        cp -r /usr/local/aws-cli/v2/current/dist /tmp/aws-cli/
+    volumeMounts:
+      - name: aws-cli
+        mountPath: /tmp/aws-cli
+
+# Pod Identity requires AWS SDK to be available
+# The auth script will use the pod's IAM credentials automatically
 authScripts:
   enabled: true
   scripts:
     auth.sh: |
       #!/bin/sh
-      aws ecr --region eu-north-1 get-authorization-token --output text --query 'authorizationData[].authorizationToken' | base64 -d
+      export PATH=/tmp/aws-cli:$PATH
+      export AWS_DATA_PATH=/tmp/aws-cli/dist
+      aws ecr get-authorization-token --region eu-north-1 --output text --query 'authorizationData[].authorizationToken' | base64 -d
+
 config:
   registries:
-  - name: ECR
-    api_url: https://822233328858.dkr.ecr.eu-north-1.amazonaws.com
-    prefix: 822233328858.dkr.ecr.eu-north-1.amazonaws.com
-    ping: yes
-    insecure: no
-    credentials: ext:/scripts/auth.sh
-    credsexpire: 10h
+    - name: ECR
+      api_url: https://428346553093.dkr.ecr.eu-north-1.amazonaws.com
+      prefix: 428346553093.dkr.ecr.eu-north-1.amazonaws.com
+      ping: yes
+      insecure: no
+      credentials: ext:/scripts/auth.sh
+      credsexpire: 10h
+
+# Mount AWS CLI into the main container
+extraVolumeMounts:
+  - name: aws-cli
+    mountPath: /tmp/aws-cli

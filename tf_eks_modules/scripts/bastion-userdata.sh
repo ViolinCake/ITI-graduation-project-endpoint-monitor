@@ -408,10 +408,19 @@ log "Installing Argo CD..."
 # Create argocd namespace
 runuser -l ec2-user -c "kubectl create namespace argocd" >/dev/null 2>&1 || log "argocd namespace exists or could not be created"
 
+# Check if Argo CD is already installed
+if runuser -l ec2-user -c "kubectl get deployment argocd-server -n argocd" >/dev/null 2>&1; then
+  log "✅ Argo CD is already installed, skipping installation"
+  ARGOCD_ALREADY_INSTALLED=true
+else
+  log "Argo CD not found, proceeding with installation..."
+  ARGOCD_ALREADY_INSTALLED=false
+fi
+
 # Install Argo CD using official manifests
 max_argocd_attempts=10
 argocd_attempt=1
-while [ $argocd_attempt -le $max_argocd_attempts ]; do
+while [ $argocd_attempt -le $max_argocd_attempts ] && [ "$ARGOCD_ALREADY_INSTALLED" = "false" ]; do
   log "Argo CD install attempt $argocd_attempt/$max_argocd_attempts"
   
   if runuser -l ec2-user -c "kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml" >>/var/log/argocd-install.log 2>&1; then
@@ -484,7 +493,16 @@ done
 # -------------------------
 log "Installing Argo CD Image Updater..."
 
-# Add Argo Helm repository
+# Check if Argo CD Image Updater is already installed
+if runuser -l ec2-user -c "kubectl get deployment argocd-image-updater -n argocd" >/dev/null 2>&1; then
+  log "✅ Argo CD Image Updater is already installed, skipping installation"
+  IMAGE_UPDATER_ALREADY_INSTALLED=true
+else
+  log "Argo CD Image Updater not found, proceeding with installation..."
+  IMAGE_UPDATER_ALREADY_INSTALLED=false
+fi
+
+# Add Argo Helm repository (idempotent)
 runuser -l ec2-user -c "helm repo add argo https://argoproj.github.io/argo-helm" >>/var/log/argocd-image-updater.log 2>&1 || log "⚠️ Argo helm repo may already exist"
 runuser -l ec2-user -c "helm repo update" >>/var/log/argocd-image-updater.log 2>&1 || log "⚠️ Failed to update helm repos"
 
@@ -499,7 +517,7 @@ chown ec2-user:ec2-user /home/ec2-user/image-updater.yaml
 # Install Argo CD Image Updater with retry logic
 max_image_updater_attempts=10
 image_updater_attempt=1
-while [ $image_updater_attempt -le $max_image_updater_attempts ]; do
+while [ $image_updater_attempt -le $max_image_updater_attempts ] && [ "$IMAGE_UPDATER_ALREADY_INSTALLED" = "false" ]; do
   log "Argo CD Image Updater install attempt $image_updater_attempt/$max_image_updater_attempts"
   
   if runuser -l ec2-user -c "kubectl get nodes" >/dev/null 2>&1; then
@@ -554,23 +572,28 @@ APPEOF
         
         chown ec2-user:ec2-user /home/ec2-user/argocd-application.yaml
         
-        # Apply the application
-        if runuser -l ec2-user -c "kubectl apply -f /home/ec2-user/argocd-application.yaml" >>/var/log/argocd-image-updater.log 2>&1; then
-          log "✅ Argo CD Application created successfully"
-          
-          # Wait for initial sync
-          log "Waiting for initial application sync (this may take a few minutes)..."
-          sleep 30
-          
-          # Check application status
-          if runuser -l ec2-user -c "kubectl get application api-health-app -n argocd" >>/var/log/argocd-image-updater.log 2>&1; then
-            log "✅ Application status verified"
-            runuser -l ec2-user -c "kubectl get application api-health-app -n argocd -o yaml" >>/var/log/argocd-image-updater.log 2>&1 || true
-          else
-            log "⚠️ Could not verify application status"
-          fi
+        # Check if application already exists
+        if runuser -l ec2-user -c "kubectl get application api-health-app -n argocd" >/dev/null 2>&1; then
+          log "✅ Argo CD Application 'api-health-app' already exists, skipping creation"
         else
-          log "⚠️ Failed to create Argo CD Application (check /var/log/argocd-image-updater.log)"
+          # Apply the application
+          if runuser -l ec2-user -c "kubectl apply -f /home/ec2-user/argocd-application.yaml" >>/var/log/argocd-image-updater.log 2>&1; then
+            log "✅ Argo CD Application created successfully"
+            
+            # Wait for initial sync
+            log "Waiting for initial application sync (this may take a few minutes)..."
+            sleep 30
+            
+            # Check application status
+            if runuser -l ec2-user -c "kubectl get application api-health-app -n argocd" >>/var/log/argocd-image-updater.log 2>&1; then
+              log "✅ Application status verified"
+              runuser -l ec2-user -c "kubectl get application api-health-app -n argocd -o yaml" >>/var/log/argocd-image-updater.log 2>&1 || true
+            else
+              log "⚠️ Could not verify application status"
+            fi
+          else
+            log "⚠️ Failed to create Argo CD Application (check /var/log/argocd-image-updater.log)"
+          fi
         fi
         
         break

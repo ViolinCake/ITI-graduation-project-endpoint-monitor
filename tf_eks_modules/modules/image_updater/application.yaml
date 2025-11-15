@@ -5,7 +5,7 @@ metadata:
   namespace: argocd
   annotations:
     argocd-image-updater.argoproj.io/image-list: myapp=428346553093.dkr.ecr.eu-north-1.amazonaws.com/my-app
-    argocd-image-updater.argoproj.io/myapp.update-strategy: latest
+    argocd-image-updater.argoproj.io/myapp.update-strategy: newest-build
     argocd-image-updater.argoproj.io/myapp.allow-tags: regexp:^v1\.0\.0-b[0-9]+-[a-f0-9]+-[0-9]+-[0-9]+$
     argocd-image-updater.argoproj.io/write-back-method: git:secret:argocd/git-creds
     argocd-image-updater.argoproj.io/git-branch: main
