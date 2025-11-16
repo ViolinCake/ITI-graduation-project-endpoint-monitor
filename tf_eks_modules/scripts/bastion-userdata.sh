@@ -616,11 +616,99 @@ APPEOF
   image_updater_attempt=$((image_updater_attempt+1))
 done
 
+# -------------------------
+# Create Database Credentials Secret from AWS Secrets Manager
+# -------------------------
+log "Creating Kubernetes secret for RDS database credentials..."
+
+# Wait a bit to ensure Secrets Manager secret is available
+sleep 10
+
+# Fetch RDS credentials from AWS Secrets Manager
+RDS_SECRET_NAME="${cluster_name}/rds-credentials"
+log "Fetching RDS credentials from Secrets Manager: $RDS_SECRET_NAME"
+
+max_secret_attempts=5
+secret_attempt=1
+while [ $secret_attempt -le $max_secret_attempts ]; do
+  log "Attempting to fetch RDS secret (attempt $secret_attempt/$max_secret_attempts)..."
+  
+  RDS_SECRET_JSON=$(aws secretsmanager get-secret-value \
+    --secret-id "$RDS_SECRET_NAME" \
+    --region "$${AWS_REGION}" \
+    --query SecretString \
+    --output text 2>/dev/null || echo "")
+  
+  if [ -n "$RDS_SECRET_JSON" ]; then
+    log "✅ Successfully retrieved RDS credentials from Secrets Manager"
+    
+    # Parse JSON to extract individual values
+    DB_HOST=$(echo "$RDS_SECRET_JSON" | jq -r '.host' 2>/dev/null || echo "")
+    DB_USER=$(echo "$RDS_SECRET_JSON" | jq -r '.username' 2>/dev/null || echo "")
+    DB_PASSWORD=$(echo "$RDS_SECRET_JSON" | jq -r '.password' 2>/dev/null || echo "")
+    DB_NAME=$(echo "$RDS_SECRET_JSON" | jq -r '.dbname' 2>/dev/null || echo "")
+    DB_PORT=$(echo "$RDS_SECRET_JSON" | jq -r '.port' 2>/dev/null || echo "3306")
+    
+    if [ -n "$DB_HOST" ] && [ -n "$DB_USER" ] && [ -n "$DB_PASSWORD" ] && [ -n "$DB_NAME" ]; then
+      log "Creating Kubernetes secret 'db-credentials' in default namespace..."
+      
+      # Create the secret (idempotent - will update if exists)
+      if runuser -l ec2-user -c "kubectl create secret generic db-credentials \
+        --from-literal=host='$DB_HOST' \
+        --from-literal=username='$DB_USER' \
+        --from-literal=password='$DB_PASSWORD' \
+        --from-literal=database='$DB_NAME' \
+        --from-literal=port='$DB_PORT' \
+        --namespace=default \
+        --dry-run=client -o yaml | kubectl apply -f -" >>/var/log/db-secret.log 2>&1; then
+        
+        log "✅ Database credentials secret created/updated successfully"
+        
+        # Save credentials to file for reference (secure permissions)
+        cat > /home/ec2-user/db-credentials.txt <<DBCREDS
+RDS Database Connection Details:
+=================================
+Host: $DB_HOST
+Port: $DB_PORT
+Database: $DB_NAME
+Username: $DB_USER
+Password: $DB_PASSWORD
+
+Kubernetes Secret: db-credentials (namespace: default)
+=================================
+DBCREDS
+        chown ec2-user:ec2-user /home/ec2-user/db-credentials.txt
+        chmod 600 /home/ec2-user/db-credentials.txt
+        log "✅ Database credentials saved to /home/ec2-user/db-credentials.txt"
+        
+        break
+      else
+        log "⚠️ Failed to create Kubernetes secret (check /var/log/db-secret.log)"
+      fi
+    else
+      log "⚠️ Failed to parse database credentials from Secrets Manager JSON"
+    fi
+  else
+    log "⚠️ RDS secret not found in Secrets Manager (attempt $secret_attempt)"
+    log "   This is expected if RDS module is not enabled or not yet created"
+  fi
+  
+  if [ $secret_attempt -lt $max_secret_attempts ]; then
+    log "Waiting 30s before retry..."
+    sleep 30
+  else
+    log "⚠️ Could not retrieve RDS credentials after $max_secret_attempts attempts"
+    log "   You can manually create the secret later using: kubectl create secret generic db-credentials ..."
+  fi
+  secret_attempt=$((secret_attempt+1))
+done
+
 log "✅ Bastion Setup Complete"
 log "================================================"
 log "Installation Summary:"
 log "  • Jenkins: Check /var/log/helm-jenkins.log"
 log "  • Argo CD: Check /var/log/argocd-install.log"
 log "  • Argo CD Image Updater: Check /var/log/argocd-image-updater.log"
+log "  • Database Secret: Check /var/log/db-secret.log"
 log "  • Credentials saved in /home/ec2-user/"
 log "================================================"

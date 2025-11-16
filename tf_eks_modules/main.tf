@@ -106,7 +106,7 @@ module "bastion" {
   jenkins_role_arn              = module.jenkins.jenkins_role_arn
   eks_cluster_security_group_id = module.eks.cluster_security_group_id
 
-  depends_on = [module.eks, module.jenkins]
+  depends_on = [module.eks, module.jenkins,module.secret_manager,module.rds]
 }
 
 module "imageUpdater" {
@@ -115,26 +115,40 @@ module "imageUpdater" {
   depends_on = [ module.eks ]
 }
 
-# # 🗄️ RDS
-# module "rds" {
-#   source = "../rds"
+# RDS
+module "rds" {
+  source = "./modules/rds"
 
-#   vpc_id            = module.network.vpc-id
-#   db_name           = "api_health_db"
-#   db_username       = var.db_username
-#   db_password       = var.db_password
-#   private_subnet_ids = [module.network.private-subnet-1-id, module.network.private-subnet-2-id]
-#   eks_node_sg_id    = module.node_groupe.eks_node_sg_id
-#   project_name      = var.project_name
-# }
+  vpc_id             = module.vpc.vpc_id
+  db_name            = "api_health_db"
+  db_username        = var.db_username
+  db_password        = var.db_password
+  private_subnet_ids = module.vpc.private_subnet_ids
+  eks_node_sg_id     = module.eks.cluster_security_group_id
+  project_name       = var.cluster_name
 
+  depends_on = [module.eks]
+}
 
-# # 🔐 Secrets Manager
-# module "secret_manager" {
-#   source       = "../secretManager"
-#   db_name      = module.rds.db_name
-#   project_name = var.project_name
-#   db_username  = module.rds.db_username
-#   db_password  = module.rds.db_password
-#   rds_endpoint = module.rds.db_endpoint
+#  Secrets Manager
+module "secret_manager" {
+  source = "./modules/secretManager"
+  
+  db_name      = module.rds.db_name
+  project_name = var.cluster_name
+  db_username  = module.rds.db_username
+  db_password  = module.rds.db_password
+  rds_endpoint = module.rds.db_endpoint
+
+  depends_on = [module.rds]
+}
+
+# #  External Secrets Operator IAM
+# module "external_secrets" {
+#   source = "./modules/external-secrets"
+  
+#   cluster_name = var.cluster_name
+#   aws_region   = var.aws_region
+
+#   depends_on = [module.eks]
 # }

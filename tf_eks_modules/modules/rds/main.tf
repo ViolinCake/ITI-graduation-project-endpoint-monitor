@@ -25,7 +25,7 @@ resource "aws_security_group" "rds_sg" {
 }
 
 resource "aws_db_subnet_group" "rds_subnet_group" {
-  name       = "${var.project_name}-rds-subnet-group"
+  name       = "${lower(var.project_name)}-rds-subnet-group"
   subnet_ids = var.private_subnet_ids
 
   tags = {
@@ -34,7 +34,7 @@ resource "aws_db_subnet_group" "rds_subnet_group" {
 }
 
 resource "aws_db_instance" "mysql" {
-  identifier              = "${var.project_name}-mysql"
+  identifier              = "${lower(var.project_name)}-mysql"
   engine                  = "mysql"
   engine_version          = "8.0"
   instance_class          = "db.t3.micro"
