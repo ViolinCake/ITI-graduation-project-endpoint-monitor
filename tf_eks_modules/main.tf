@@ -152,3 +152,20 @@ module "secret_manager" {
 
 #   depends_on = [module.eks]
 # }
+
+# Automatically update Jenkins URL in kaniko pod template
+resource "null_resource" "update_jenkins_url" {
+  # Trigger on Jenkins URL changes
+  triggers = {
+    jenkins_url = module.jenkins.jenkins_url
+  }
+
+  provisioner "local-exec" {
+    command     = "${path.module}/scripts/update-jenkins-url.sh"
+    working_dir = path.module
+    
+    on_failure = continue  # Don't fail terraform if git push fails
+  }
+
+  depends_on = [module.jenkins]
+}
