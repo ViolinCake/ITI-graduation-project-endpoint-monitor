@@ -89,7 +89,7 @@ aws eks update-kubeconfig --region eu-north-1 --name ITI-GP-Cluster
 
 This creates:
 
-- VPC with public/private subnets across 2 AZs
+- VPC with public/private subnets across 3 AZs
 - EKS cluster (ITI-GP-Cluster) with managed node groups
 - RDS MySQL instance
 - AWS Secrets Manager for credentials
