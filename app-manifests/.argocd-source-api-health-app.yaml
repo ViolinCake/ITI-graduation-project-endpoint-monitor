@@ -1,3 +1,3 @@
 kustomize:
   images:
-  - 428346553093.dkr.ecr.eu-north-1.amazonaws.com/my-app:v26.0.0
+  - 428346553093.dkr.ecr.eu-north-1.amazonaws.com/my-app:v28.0.0
