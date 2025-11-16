@@ -51,7 +51,7 @@ if [ -z "$JENKINS_DNS" ]; then
     exit 1
 fi
 
-JENKINS_URL="http://${JENKINS_DNS}"
+JENKINS_URL="http://${JENKINS_DNS}:3000"
 
 echo "✅ Found Jenkins URL: $JENKINS_URL"
 echo ""
@@ -60,10 +60,10 @@ echo "📝 Updating $KANIKO_YAML..."
 # Update the YAML file using sed
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS
-    sed -i '' "s|value: 'http://.*'|value: '${JENKINS_URL}'|g" "$KANIKO_YAML"
+    sed -i '' "s|value: 'http://[^']*'|value: '${JENKINS_URL}'|g" "$KANIKO_YAML"
 else
     # Linux
-    sed -i "s|value: 'http://.*'|value: '${JENKINS_URL}'|g" "$KANIKO_YAML"
+    sed -i "s|value: 'http://[^']*'|value: '${JENKINS_URL}'|g" "$KANIKO_YAML"
 fi
 
 echo "✅ Updated JENKINS_URL to: $JENKINS_URL"
