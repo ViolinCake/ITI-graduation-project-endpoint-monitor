@@ -1,6 +1,6 @@
 # ITI Graduation Project: Endpoint Monitor with Full GitOps Pipeline on AWS
 
-## Project Overview
+## Project Overview  
 
 A production-ready **Endpoint Monitoring System** deployed using a complete GitOps pipeline on AWS. This project demonstrates modern DevOps practices including Infrastructure as Code (IaC), continuous integration/deployment, container orchestration, and secure secrets management.
 
