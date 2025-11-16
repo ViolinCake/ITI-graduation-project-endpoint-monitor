@@ -114,6 +114,18 @@ output "region" {
   value       = var.aws_region
 }
 
+# Argo CD Output
+output "argocd_url" {
+  description = "Argo CD URL (HTTP via ALB port 8080)"
+  value       = "http://${module.jenkins.jenkins_alb_dns}:8080"
+}
+
+# Application Pod URL
+output "app_url" {
+  description = "Application URL (HTTP via ALB port 3000)"
+  value       = "http://${module.jenkins.jenkins_alb_dns}:3000"
+}
+
 # output "cluster_endpoint" {
 #   value = module.eks.eks-cluster-endpoint
 # }
