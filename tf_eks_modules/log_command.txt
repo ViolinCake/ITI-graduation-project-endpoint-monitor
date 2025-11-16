@@ -5,4 +5,4 @@ cat /home/ec2-user/jenkins-password.txt
 update to trigger jenkins23
 helm get values jenkins -n jenkins
 kubectl -n argocd logs -l app.kubernetes.io/name=argocd-image-updater -f
-trigger2 the pipeline
+trigger the pipeline
