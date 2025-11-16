@@ -162,6 +162,14 @@ const closeRedis = async () => {
   }
 };
 
+// Cache object with get/set/del methods for backward compatibility
+const cache = {
+  get: getCache,
+  set: setCache,
+  del: deleteCache,
+  clear: clearCache,
+};
+
 module.exports = {
   connectRedis,
   getCache,
@@ -172,4 +180,5 @@ module.exports = {
   closeRedis,
   getClient: () => redisClient,
   isConnected: () => isRedisConnected,
+  cache, // Export cache object
 };
