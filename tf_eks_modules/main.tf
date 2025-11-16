@@ -138,7 +138,7 @@ module "secret_manager" {
   project_name = var.cluster_name
   db_username  = module.rds.db_username
   db_password  = module.rds.db_password
-  rds_endpoint = module.rds.db_endpoint
+  rds_endpoint = module.rds.rds_endpoint
 
   depends_on = [module.rds]
 }

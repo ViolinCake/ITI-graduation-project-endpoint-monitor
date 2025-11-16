@@ -1,5 +1,6 @@
 resource "aws_secretsmanager_secret" "rds_secret" {
   name = "${var.project_name}/rds-credentials"
+  recovery_window_in_days = 0
 
   tags = {
     Project = var.project_name

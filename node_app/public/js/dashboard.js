@@ -116,7 +116,7 @@ async function loadServices() {
  * @returns {string} HTML for service card
  */
 function renderServiceCard(service) {
-  const status = service.current_status || 'unknown';
+  const status = service.current_status || 'healthy';
   const statusBadge = getStatusBadge(status);
   const lastCheck = formatDate(service.last_check);
 
