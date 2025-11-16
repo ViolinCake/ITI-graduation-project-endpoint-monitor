@@ -75,9 +75,10 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
-**/.terraform.lock.hcl
+
 # Terraform lock file (optional - some teams prefer to commit this)
-# .terraform.lock.hcl
+**/.terraform.lock.hcl
+.terraform.lock.hcl
 
 # AWS credentials and sensitive files
 aws_credentials
